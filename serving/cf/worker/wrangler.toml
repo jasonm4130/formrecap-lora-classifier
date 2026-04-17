@@ -1,0 +1,10 @@
+name = "formrecap-classify"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+
+[ai]
+binding = "AI"
+
+[[kv_namespaces]]
+binding = "STATE"
+id = "REPLACED_BY_TERRAFORM"
