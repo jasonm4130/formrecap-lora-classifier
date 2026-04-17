@@ -9,7 +9,7 @@ authors = [{ name = "Jason Matthew" }]
 dependencies = [
     "modal>=0.64",
     "anthropic>=0.40",
-    "openai>=1.50",
+
     "scikit-learn>=1.5",
     "numpy>=2.0",
     "pandas>=2.2",
