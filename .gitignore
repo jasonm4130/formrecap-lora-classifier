@@ -8,6 +8,7 @@ __pycache__/
 # Local data / artifacts
 data/synthetic/
 data/real/*.jsonl
+!data/real/test.jsonl
 !data/real/.gitkeep
 runs/
 *.safetensors
