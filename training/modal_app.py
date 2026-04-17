@@ -151,3 +151,104 @@ def run_train(
 ):
     manifest = train.remote(run_id=run_id, train_file=train_file, val_file=val_file)
     print(manifest)
+
+
+@app.function(
+    image=image,
+    gpu="L4",
+    volumes={VOLUME_PATH: volume},
+    timeout=600,
+    min_containers=0,
+    secrets=[modal.Secret.from_name("huggingface")],
+)
+def predict_with_logprobs(
+    run_id: str,
+    messages: list[dict],
+    base_model: str = "unsloth/Llama-3.2-3B-Instruct",
+    max_new_tokens: int = 128,
+) -> dict:
+    """Run inference with a fine-tuned adapter. Returns predicted text + first-token logprobs."""
+    import torch
+    from unsloth import FastLanguageModel
+    from unsloth.chat_templates import get_chat_template
+
+    vol = Path(VOLUME_PATH)
+    adapter_path = vol / "runs" / run_id / "adapter"
+
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name=str(adapter_path),
+        max_seq_length=512,
+        dtype=None,
+        load_in_4bit=True,
+    )
+    tokenizer = get_chat_template(tokenizer, chat_template="llama-3.1")
+    FastLanguageModel.for_inference(model)
+
+    inputs = tokenizer.apply_chat_template(
+        messages, tokenize=True, add_generation_prompt=True, return_tensors="pt"
+    ).to("cuda")
+
+    with torch.no_grad():
+        output = model.generate(
+            inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            temperature=None,
+            top_p=None,
+            return_dict_in_generate=True,
+            output_scores=True,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+
+    generated_ids = output.sequences[0][inputs.shape[1]:]
+    text = tokenizer.decode(generated_ids, skip_special_tokens=True)
+
+    # First-token logprobs
+    first_scores = output.scores[0][0]  # (vocab_size,)
+    first_probs = torch.softmax(first_scores, dim=-1)
+    first_logprobs = torch.log_softmax(first_scores, dim=-1)
+
+    # Top-K candidates for the first token
+    topk = 10
+    topk_vals, topk_ids = torch.topk(first_logprobs, topk)
+    candidates = [
+        {
+            "token": tokenizer.decode([int(tid)]),
+            "token_id": int(tid),
+            "logprob": float(v),
+            "prob": float(first_probs[tid]),
+        }
+        for tid, v in zip(topk_ids, topk_vals)
+    ]
+
+    emitted_first_token_id = int(generated_ids[0])
+    emitted_first_logprob = float(first_logprobs[emitted_first_token_id])
+
+    return {
+        "text": text,
+        "first_token": {
+            "id": emitted_first_token_id,
+            "token": tokenizer.decode([emitted_first_token_id]),
+            "logprob": emitted_first_logprob,
+            "prob": float(first_probs[emitted_first_token_id]),
+        },
+        "top_candidates": candidates,
+    }
+
+
+@app.local_entrypoint()
+def run_predict_smoke(run_id: str = "baseline-3b"):
+    import json
+
+    messages = [
+        {"role": "system", "content": (
+            "You analyse form interaction event sequences and classify the likely "
+            "abandonment reason. Respond with a digit class code 1-6 on the first line, "
+            "then a JSON object on the second line with class, reason, and confidence fields. "
+            "Classes: 1=validation_error, 2=distraction, 3=comparison_shopping, "
+            "4=accidental_exit, 5=bot, 6=committed_leave."
+        )},
+        {"role": "user", "content": "Events: focus:email, input:email(x20), blur:email(invalid_format), exit"},
+    ]
+    result = predict_with_logprobs.remote(run_id=run_id, messages=messages)
+    print(json.dumps(result, indent=2, default=str))
