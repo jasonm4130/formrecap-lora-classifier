@@ -1,11 +1,9 @@
 """Generate synthetic training examples via Claude Sonnet 4.5."""
 
 import json
-import os
 import random
 import time
 from pathlib import Path
-from typing import Iterator
 
 import click
 from anthropic import Anthropic
@@ -13,7 +11,7 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.progress import Progress
 
-from .primers import CLASS_NAMES, PRIMERS, ClassCode, Primer, get_primers_for_class
+from .primers import CLASS_NAMES, ClassCode, Primer, get_primers_for_class
 
 load_dotenv()
 console = Console()
