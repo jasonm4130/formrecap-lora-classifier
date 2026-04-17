@@ -1,6 +1,6 @@
 """Normalise verbose form event JSON to terse token format for LLM input."""
 
-from typing import TypedDict, NotRequired, Literal
+from typing import Literal, NotRequired, TypedDict
 
 
 class EventTrace(TypedDict):
