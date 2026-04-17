@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FormRecap LoRA Classifier Demo</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+<body>
+  <main>
+    <h1>FormRecap LoRA Classifier</h1>
+    <p>Paste a form event trace. The model predicts abandonment reason. Powered by a fine-tuned Llama 3.2 3B LoRA served on Cloudflare Workers AI.</p>
+    <label for="events">Event trace</label>
+    <textarea id="events" rows="6" placeholder="focus:email, input:email(x8), blur:email(invalid_format), exit"></textarea>
+    <button id="try-example">Insert example</button>
+    <div class="cf-turnstile" data-sitekey="REPLACE_SITEKEY" data-callback="onTurnstileVerified"></div>
+    <button id="classify" disabled>Classify</button>
+    <pre id="result"></pre>
+    <footer>
+      <a href="https://github.com/jasonm4130/formrecap-lora-classifier">GitHub</a>
+    </footer>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
