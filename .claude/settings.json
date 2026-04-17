@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv:*)",
+      "Bash(uv run:*)",
+      "Bash(op run:*)",
+      "Bash(op item:*)",
+      "Bash(op vault:*)",
+      "Bash(modal:*)",
+      "Bash(modal run:*)",
+      "Bash(modal volume:*)",
+      "Bash(modal deploy:*)",
+      "Bash(ruff:*)",
+      "Bash(pytest:*)",
+      "Bash(mypy:*)",
+      "Bash(terraform:*)",
+      "Bash(wrangler:*)",
+      "Bash(touch:*)",
+      "Bash(find:*)",
+      "Bash(test:*)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(python3:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(modal secret:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; case \"$f\" in *.py) uv run ruff check --fix \"$f\" 2>/dev/null; uv run ruff format \"$f\" 2>/dev/null;; esac; } || true",
+            "timeout": 15,
+            "statusMessage": "Formatting Python..."
+          }
+        ]
+      }
+    ]
+  }
+}
