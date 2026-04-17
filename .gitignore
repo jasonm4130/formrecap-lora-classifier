@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+*.egg-info/
+
+# Local data / artifacts
+data/synthetic/
+data/real/*.jsonl
+!data/real/.gitkeep
+runs/
+*.safetensors
+*.bin
+.modal/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.secrets
+
+# Node / Cloudflare
+node_modules/
+.wrangler/
+.dev.vars
+dist/
+.turbo/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# IDE
+.vscode/
+.idea/
+.zed/
+
+# macOS
+.DS_Store
