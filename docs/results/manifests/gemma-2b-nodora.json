@@ -1,0 +1,53 @@
+{
+  "run_id": "gemma-2b-nodora",
+  "train_file": "data/train-2026-04-18.jsonl",
+  "val_file": "data/val-2026-04-18.jsonl",
+  "config": {
+    "base_model": "google/gemma-2b-it",
+    "max_length": 512,
+    "load_in_4bit": true,
+    "learning_rate": 0.0002,
+    "epochs": 3,
+    "per_device_train_batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "warmup_ratio": 0.1,
+    "lr_scheduler_type": "cosine",
+    "seed": 42,
+    "save_strategy": "epoch",
+    "evaluation_strategy": "epoch",
+    "logging_steps": 5,
+    "lora": {
+      "r": 16,
+      "alpha": 32,
+      "dropout": 0.05,
+      "target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+      ],
+      "use_dora": false
+    }
+  },
+  "effective_batch_size": 16,
+  "best_epoch": 2.9592760180995477,
+  "best_val_loss": 0.39064013957977295,
+  "final_train_loss": 0.6881037690422752,
+  "eval_history": [
+    [
+      1.0,
+      0.48768019676208496
+    ],
+    [
+      2.0,
+      0.3991740643978119
+    ],
+    [
+      2.9592760180995477,
+      0.39064013957977295
+    ]
+  ]
+}

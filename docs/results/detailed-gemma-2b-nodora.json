@@ -1,0 +1,619 @@
+{
+  "run_id": "gemma-2b-nodora",
+  "base_model": "google/gemma-2b-it",
+  "temperature": 0.5907338282214863,
+  "predictions": [
+    {
+      "true_label": 1,
+      "predicted_label": 1,
+      "verbalized_confidence": 0.88,
+      "logprob_confidence": 1.0,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 1,
+      "predicted_label": 1,
+      "verbalized_confidence": 0.88,
+      "logprob_confidence": 1.0,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 1,
+      "predicted_label": 6,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.5108,
+      "calibrated_confidence": 0.5875
+    },
+    {
+      "true_label": 1,
+      "predicted_label": 1,
+      "verbalized_confidence": 0.88,
+      "logprob_confidence": 1.0,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 1,
+      "predicted_label": 1,
+      "verbalized_confidence": 0.88,
+      "logprob_confidence": 1.0,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 1,
+      "predicted_label": 1,
+      "verbalized_confidence": 0.88,
+      "logprob_confidence": 0.9999,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 1,
+      "predicted_label": 1,
+      "verbalized_confidence": 0.88,
+      "logprob_confidence": 0.9999,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 1,
+      "predicted_label": 1,
+      "verbalized_confidence": 0.88,
+      "logprob_confidence": 1.0,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 1,
+      "predicted_label": 1,
+      "verbalized_confidence": 0.88,
+      "logprob_confidence": 1.0,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 1,
+      "predicted_label": 2,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.4033,
+      "calibrated_confidence": 0.5255
+    },
+    {
+      "true_label": 1,
+      "predicted_label": 1,
+      "verbalized_confidence": 0.88,
+      "logprob_confidence": 1.0,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 1,
+      "predicted_label": 1,
+      "verbalized_confidence": 0.88,
+      "logprob_confidence": 1.0,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 2,
+      "predicted_label": 2,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.9995,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 2,
+      "predicted_label": 2,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.9997,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 2,
+      "predicted_label": 2,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.9999,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 2,
+      "predicted_label": 2,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.9996,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 2,
+      "predicted_label": 2,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.9999,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 2,
+      "predicted_label": 2,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.9672,
+      "calibrated_confidence": 0.9983
+    },
+    {
+      "true_label": 2,
+      "predicted_label": 2,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 1.0,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 2,
+      "predicted_label": 2,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.9997,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 2,
+      "predicted_label": 2,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.9922,
+      "calibrated_confidence": 0.9999
+    },
+    {
+      "true_label": 2,
+      "predicted_label": 2,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.9993,
+      "calibrated_confidence": 1.0
+    },
+    {
+      "true_label": 3,
+      "predicted_label": 3,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.8173,
+      "calibrated_confidence": 0.9268
+    },
+    {
+      "true_label": 3,
+      "predicted_label": 3,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.9043,
+      "calibrated_confidence": 0.9783
+    },
+    {
+      "true_label": 3,
+      "predicted_label": 6,
+      "verbalized_confidence": 0.78,
+      "logprob_confidence": 0.7703,
+      "calibrated_confidence": 0.9266
+    },
+    {
+      "true_label": 3,
+      "predicted_label": 3,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.8515,
+      "calibrated_confidence": 0.9508
+    },
+    {
+      "true_label": 3,
+      "predicted_label": 3,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.8517,
+      "calibrated_confidence": 0.9508
+    },
+    {
+      "true_label": 3,
+      "predicted_label": 3,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.621,
+      "calibrated_confidence": 0.6998
+    },
+    {
+      "true_label": 3,
+      "predicted_label": 6,
+      "verbalized_confidence": 0.78,
+      "logprob_confidence": 0.6495,
+      "calibrated_confidence": 0.7423
+    },
+    {
+      "true_label": 3,
+      "predicted_label": 3,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.7307,
+      "calibrated_confidence": 0.8446
+    },
+    {
+      "true_label": 3,
+      "predicted_label": 6,
+      "verbalized_confidence": 0.78,
+      "logprob_confidence": 0.6198,
+      "calibrated_confidence": 0.6997
+    },
+    {
+      "true_label": 3,
+      "predicted_label": 3,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.7771,
+      "calibrated_confidence": 0.8924
+    },
+    {
+      "true_label": 4,
+      "predicted_label": 4,
+      "verbalized_confidence": 0.62,
+      "logprob_confidence": 0.91,
+      "calibrated_confidence": 0.9873
+    },
+    {
+      "true_label": 4,
+      "predicted_label": 4,
+      "verbalized_confidence": 0.62,
+      "logprob_confidence": 0.9118,
+      "calibrated_confidence": 0.985
+    },
+    {
+      "true_label": 4,
+      "predicted_label": 4,
+      "verbalized_confidence": 0.62,
+      "logprob_confidence": 0.9741,
+      "calibrated_confidence": 0.9982
+    },
+    {
+      "true_label": 4,
+      "predicted_label": 4,
+      "verbalized_confidence": 0.62,
+      "logprob_confidence": 0.8992,
+      "calibrated_confidence": 0.9844
+    },
+    {
+      "true_label": 4,
+      "predicted_label": 4,
+      "verbalized_confidence": 0.62,
+      "logprob_confidence": 0.7861,
+      "calibrated_confidence": 0.9366
+    },
+    {
+      "true_label": 4,
+      "predicted_label": 4,
+      "verbalized_confidence": 0.62,
+      "logprob_confidence": 0.7353,
+      "calibrated_confidence": 0.8931
+    },
+    {
+      "true_label": 4,
+      "predicted_label": 4,
+      "verbalized_confidence": 0.62,
+      "logprob_confidence": 0.8845,
+      "calibrated_confidence": 0.9766
+    },
+    {
+      "true_label": 4,
+      "predicted_label": 4,
+      "verbalized_confidence": 0.62,
+      "logprob_confidence": 0.8717,
+      "calibrated_confidence": 0.9765
+    },
+    {
+      "true_label": 5,
+      "predicted_label": 5,
+      "verbalized_confidence": 0.91,
+      "logprob_confidence": 0.7258,
+      "calibrated_confidence": 0.8922
+    },
+    {
+      "true_label": 5,
+      "predicted_label": 5,
+      "verbalized_confidence": 0.91,
+      "logprob_confidence": 0.8701,
+      "calibrated_confidence": 0.9745
+    },
+    {
+      "true_label": 5,
+      "predicted_label": 5,
+      "verbalized_confidence": 0.91,
+      "logprob_confidence": 0.8497,
+      "calibrated_confidence": 0.967
+    },
+    {
+      "true_label": 5,
+      "predicted_label": 5,
+      "verbalized_confidence": 0.91,
+      "logprob_confidence": 0.8275,
+      "calibrated_confidence": 0.951
+    },
+    {
+      "true_label": 6,
+      "predicted_label": 6,
+      "verbalized_confidence": 0.78,
+      "logprob_confidence": 0.674,
+      "calibrated_confidence": 0.7804
+    },
+    {
+      "true_label": 6,
+      "predicted_label": 6,
+      "verbalized_confidence": 0.78,
+      "logprob_confidence": 0.8366,
+      "calibrated_confidence": 0.9644
+    },
+    {
+      "true_label": 6,
+      "predicted_label": 6,
+      "verbalized_confidence": 0.78,
+      "logprob_confidence": 0.5541,
+      "calibrated_confidence": 0.6453
+    },
+    {
+      "true_label": 6,
+      "predicted_label": 3,
+      "verbalized_confidence": 0.82,
+      "logprob_confidence": 0.7304,
+      "calibrated_confidence": 0.8446
+    },
+    {
+      "true_label": 6,
+      "predicted_label": 6,
+      "verbalized_confidence": 0.78,
+      "logprob_confidence": 0.8313,
+      "calibrated_confidence": 0.9597
+    },
+    {
+      "true_label": 6,
+      "predicted_label": 6,
+      "verbalized_confidence": 0.78,
+      "logprob_confidence": 0.8118,
+      "calibrated_confidence": 0.9375
+    },
+    {
+      "true_label": 6,
+      "predicted_label": 6,
+      "verbalized_confidence": 0.78,
+      "logprob_confidence": 0.7918,
+      "calibrated_confidence": 0.9233
+    },
+    {
+      "true_label": 6,
+      "predicted_label": 6,
+      "verbalized_confidence": 0.78,
+      "logprob_confidence": 0.5948,
+      "calibrated_confidence": 0.7629
+    }
+  ],
+  "confusion_matrix": {
+    "classes": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "matrix": [
+      [
+        10,
+        1,
+        0,
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        10,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        7,
+        0,
+        0,
+        3
+      ],
+      [
+        0,
+        0,
+        0,
+        8,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        4,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        0,
+        0,
+        7
+      ]
+    ]
+  },
+  "calibration_buckets": {
+    "logprob_raw": [
+      {
+        "bin_midpoint": 0.05,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.15,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.25,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.35,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.45,
+        "count": 1,
+        "avg_confidence": 0.4033,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.55,
+        "count": 3,
+        "avg_confidence": 0.5532,
+        "accuracy": 0.6667
+      },
+      {
+        "bin_midpoint": 0.65,
+        "count": 4,
+        "avg_confidence": 0.641,
+        "accuracy": 0.5
+      },
+      {
+        "bin_midpoint": 0.75,
+        "count": 8,
+        "avg_confidence": 0.756,
+        "accuracy": 0.75
+      },
+      {
+        "bin_midpoint": 0.85,
+        "count": 12,
+        "avg_confidence": 0.8502,
+        "accuracy": 1.0
+      },
+      {
+        "bin_midpoint": 0.95,
+        "count": 24,
+        "avg_confidence": 0.9857,
+        "accuracy": 1.0
+      }
+    ],
+    "calibrated": [
+      {
+        "bin_midpoint": 0.05,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.15,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.25,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.35,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.45,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.55,
+        "count": 2,
+        "avg_confidence": 0.5565,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.65,
+        "count": 3,
+        "avg_confidence": 0.6816,
+        "accuracy": 0.6667
+      },
+      {
+        "bin_midpoint": 0.75,
+        "count": 3,
+        "avg_confidence": 0.7618,
+        "accuracy": 0.6667
+      },
+      {
+        "bin_midpoint": 0.85,
+        "count": 5,
+        "avg_confidence": 0.8734,
+        "accuracy": 0.8
+      },
+      {
+        "bin_midpoint": 0.95,
+        "count": 39,
+        "avg_confidence": 0.9809,
+        "accuracy": 0.9744
+      }
+    ],
+    "verbalized": [
+      {
+        "bin_midpoint": 0.05,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.15,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.25,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.35,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.45,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.55,
+        "count": 0,
+        "avg_confidence": 0.0,
+        "accuracy": 0.0
+      },
+      {
+        "bin_midpoint": 0.65,
+        "count": 8,
+        "avg_confidence": 0.62,
+        "accuracy": 1.0
+      },
+      {
+        "bin_midpoint": 0.75,
+        "count": 10,
+        "avg_confidence": 0.78,
+        "accuracy": 0.7
+      },
+      {
+        "bin_midpoint": 0.85,
+        "count": 30,
+        "avg_confidence": 0.84,
+        "accuracy": 0.9
+      },
+      {
+        "bin_midpoint": 0.95,
+        "count": 4,
+        "avg_confidence": 0.91,
+        "accuracy": 1.0
+      }
+    ]
+  }
+}

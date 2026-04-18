@@ -1,0 +1,48 @@
+{
+  "run_id": "mistral-7b-cf",
+  "train_file": "data/train-2026-04-18.jsonl",
+  "val_file": "data/val-2026-04-18.jsonl",
+  "config": {
+    "base_model": "mistralai/Mistral-7B-Instruct-v0.2",
+    "max_length": 512,
+    "load_in_4bit": true,
+    "learning_rate": 0.0002,
+    "epochs": 3,
+    "per_device_train_batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "warmup_ratio": 0.1,
+    "lr_scheduler_type": "cosine",
+    "seed": 42,
+    "save_strategy": "epoch",
+    "evaluation_strategy": "epoch",
+    "logging_steps": 5,
+    "lora": {
+      "r": 8,
+      "alpha": 16,
+      "dropout": 0.05,
+      "target_modules": [
+        "q_proj",
+        "v_proj"
+      ],
+      "use_dora": false
+    }
+  },
+  "effective_batch_size": 16,
+  "best_epoch": 2.9592760180995477,
+  "best_val_loss": 0.39116665720939636,
+  "final_train_loss": 0.654706884875442,
+  "eval_history": [
+    [
+      1.0,
+      0.47669219970703125
+    ],
+    [
+      2.0,
+      0.39928537607192993
+    ],
+    [
+      2.9592760180995477,
+      0.39116665720939636
+    ]
+  ]
+}
