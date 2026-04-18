@@ -80,6 +80,22 @@
     <div><div class="stat-val mono">884</div><div class="stat-lbl">Training examples</div></div>
   </div>
 
+  <label>Select model</label>
+  <div class="examples" style="margin-bottom: 1.5rem;">
+    <button class="ex-btn model-btn active" data-model="cf-lora">
+      <span class="ex-cls">CF LoRA</span>
+      <span class="ex-desc">Mistral 7B, constrained (r=8, edge)</span>
+    </button>
+    <button class="ex-btn model-btn" data-model="full-lora">
+      <span class="ex-cls">Full LoRA</span>
+      <span class="ex-desc">Gemma 2B, full adapter (F1=0.916)</span>
+    </button>
+    <button class="ex-btn model-btn" data-model="zero-shot">
+      <span class="ex-cls">Zero-shot</span>
+      <span class="ex-desc">Gemma 2B, no fine-tuning (F1=0.06)</span>
+    </button>
+  </div>
+
   <label>Try an example or paste your own event trace</label>
   <div class="examples">
     <button class="ex-btn" data-trace="focus:email, input:email(x12), blur:email(invalid_format), focus:email, input:email(x8), blur:email(invalid_format), scroll:page(3200ms), focus:email, input:email(x15), blur:email(invalid_format), exit">

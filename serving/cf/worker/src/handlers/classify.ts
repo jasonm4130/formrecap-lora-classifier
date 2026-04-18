@@ -11,6 +11,10 @@ const SYSTEM_PROMPT =
   "Classes: 1=validation_error, 2=distraction, 3=comparison_shopping, " +
   "4=accidental_exit, 5=bot, 6=committed_leave.";
 
+const VLLM_GEMMA_URL = "https://jasonm4130--formrecap-lora-vllm-serve-gemma-2b.modal.run";
+
+type ModelVariant = "zero-shot" | "cf-lora" | "full-lora";
+
 function parseModelOutput(text: string): Record<string, unknown> {
   const [first, ...restArr] = text.trim().split("\n");
   const rest = restArr.join("\n").trim();
@@ -19,6 +23,33 @@ function parseModelOutput(text: string): Record<string, unknown> {
   let obj: Record<string, unknown> = {};
   try { obj = JSON.parse(rest); } catch { /* fallback */ }
   return { code, ...obj, raw: text };
+}
+
+async function callCfWorkersAi(env: any, events: string, loraId: string): Promise<string> {
+  const messages = [
+    { role: "user", content: `${SYSTEM_PROMPT}\n\nEvents: ${events}` },
+  ];
+  const aiResp: any = await env.AI.run("@cf/mistral/mistral-7b-instruct-v0.2-lora", { messages, lora: loraId });
+  return aiResp.response as string;
+}
+
+async function callVllm(modelName: string, events: string): Promise<string> {
+  const messages = [
+    { role: "user", content: `${SYSTEM_PROMPT}\n\nEvents: ${events}` },
+  ];
+  const resp = await fetch(`${VLLM_GEMMA_URL}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: modelName,
+      messages,
+      max_tokens: 64,
+      temperature: 0,
+    }),
+  });
+  if (!resp.ok) throw new Error(`vLLM error: ${resp.status} ${await resp.text()}`);
+  const json: any = await resp.json();
+  return json.choices?.[0]?.message?.content ?? "";
 }
 
 export interface Env {
@@ -52,24 +83,38 @@ export async function handleClassify(env: Env, request: Request): Promise<Respon
   }
 
   // Parse + validate
-  const body = (await request.json().catch(() => ({}))) as { events?: string };
+  const body = (await request.json().catch(() => ({}))) as { events?: string; model?: ModelVariant };
   if (!body.events) return new Response("missing events", { status: 400 });
   const check = validateEventTrace(body.events);
   if (!check.ok) return new Response(JSON.stringify({ error: check.reason }), { status: 400 });
 
-  // Call Workers AI — Mistral uses [INST] tags, system merged into user turn
-  const messages = [
-    { role: "user", content: `${SYSTEM_PROMPT}\n\nEvents: ${body.events}` },
-  ];
-  const aiResp: any = await env.AI.run("@cf/mistral/mistral-7b-instruct-v0.2-lora", { messages, lora: env.LORA_FINETUNE_ID });
-  const text = aiResp.response as string;
+  const variant = body.model ?? "cf-lora";
+  const start = Date.now();
+  let text: string;
 
+  switch (variant) {
+    case "zero-shot":
+      // Gemma 2B base model via vLLM (no adapter)
+      text = await callVllm("google/gemma-2b-it", body.events);
+      break;
+    case "full-lora":
+      // Gemma 2B full LoRA (r=16, 7 modules) via vLLM
+      text = await callVllm("gemma-2b-nodora", body.events);
+      break;
+    case "cf-lora":
+    default:
+      // Mistral 7B CF LoRA via CF Workers AI
+      text = await callCfWorkersAi(env, body.events, env.LORA_FINETUNE_ID);
+      break;
+  }
+
+  const latencyMs = Date.now() - start;
   const parsed = parseModelOutput(text);
 
   // Increment counter
   await env.STATE.put(key, String(spent + ESTIMATED_NEURONS_PER_CALL), { expirationTtl: 60 * 60 * 48 });
 
-  return new Response(JSON.stringify(parsed), {
+  return new Response(JSON.stringify({ ...parsed, model: variant, latency_ms: latencyMs }), {
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
   });
 }

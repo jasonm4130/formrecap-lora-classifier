@@ -1,5 +1,6 @@
 const API_BASE = "https://formrecap-classify.jasonm4130.workers.dev";
 let demoToken = null;
+let selectedModel = "cf-lora";
 
 const CLASS_NAMES = {
   1: "validation_error",
@@ -25,10 +26,19 @@ async function onTurnstileVerified(tsToken) {
 }
 window.onTurnstileVerified = onTurnstileVerified;
 
-// Example buttons
-document.querySelectorAll(".ex-btn").forEach((btn) => {
+// Model selector
+document.querySelectorAll(".model-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".ex-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".model-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    selectedModel = btn.dataset.model;
+  });
+});
+
+// Example buttons
+document.querySelectorAll(".ex-btn:not(.model-btn)").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".ex-btn:not(.model-btn)").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById("events").value = btn.dataset.trace;
   });
@@ -55,14 +65,19 @@ document.getElementById("classify").addEventListener("click", async () => {
         "Content-Type": "application/json",
         "X-Demo-Token": demoToken,
       },
-      body: JSON.stringify({ events }),
+      body: JSON.stringify({ events, model: selectedModel }),
     });
     const json = await r.json();
 
     const className = CLASS_NAMES[json.code] || "unknown";
     document.getElementById("r-class").textContent = `${json.code} — ${className}`;
-    document.getElementById("r-conf").textContent =
-      json.confidence ? `confidence: ${(json.confidence * 100).toFixed(0)}%` : "";
+
+    const parts = [];
+    if (json.confidence) parts.push(`confidence: ${(json.confidence * 100).toFixed(0)}%`);
+    if (json.latency_ms) parts.push(`${json.latency_ms}ms`);
+    if (json.model) parts.push(json.model);
+    document.getElementById("r-conf").textContent = parts.join(" · ");
+
     document.getElementById("r-reason").textContent =
       json.reason || json.raw || "No reason provided";
     document.getElementById("r-json").textContent = JSON.stringify(json, null, 2);
