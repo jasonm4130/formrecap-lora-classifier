@@ -23,6 +23,7 @@ def _build_vllm_cmd(
     base_model: str,
     lora_adapters: dict[str, str] | None = None,
     quantization: str | None = None,
+    api_key: str | None = None,
 ) -> list[str]:
     """Build the vllm serve command."""
     cmd = [
@@ -39,6 +40,8 @@ def _build_vllm_cmd(
         "--dtype",
         "bfloat16",
     ]
+    if api_key:
+        cmd.extend(["--api-key", api_key])
     if quantization:
         cmd.extend(["--quantization", quantization, "--load-format", quantization])
     if lora_adapters:
@@ -80,20 +83,23 @@ def serve_llama_3b():
     volumes={VOLUME_PATH: volume},
     scaledown_window=300,
     timeout=600,
-    secrets=[modal.Secret.from_name("huggingface")],
+    secrets=[modal.Secret.from_name("huggingface"), modal.Secret.from_name("vllm-api-key")],
 )
 @modal.concurrent(max_inputs=50)
 @modal.web_server(port=8000, startup_timeout=600)
 def serve_gemma_2b():
+    import os
     import subprocess
 
     volume.reload()
+    api_key = os.environ.get("VLLM_API_KEY", "")
     cmd = _build_vllm_cmd(
         "google/gemma-2b-it",
         lora_adapters={
             "gemma-2b-cf": f"{VOLUME_PATH}/runs/gemma-2b-cf/adapter",
             "gemma-2b-nodora": f"{VOLUME_PATH}/runs/gemma-2b-nodora/adapter",
         },
+        api_key=api_key or None,
     )
     subprocess.Popen(" ".join(cmd), shell=True)
 
