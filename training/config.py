@@ -8,14 +8,24 @@ class LoraConfig:
     r: int = 16
     alpha: int = 32
     dropout: float = 0.05
-    target_modules: str = "all-linear"
+    target_modules: list[str] = field(
+        default_factory=lambda: [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ]
+    )
     use_dora: bool = True
 
 
 @dataclass
 class TrainingConfig:
-    base_model: str = "unsloth/Llama-3.2-3B-Instruct"  # unsloth's pre-quantized mirror
-    max_seq_length: int = 512
+    base_model: str = "meta-llama/Llama-3.2-3B-Instruct"
+    max_length: int = 512
     load_in_4bit: bool = True  # QLoRA NF4
     learning_rate: float = 2e-4
     epochs: int = 3

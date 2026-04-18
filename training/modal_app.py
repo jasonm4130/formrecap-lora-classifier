@@ -1,4 +1,9 @@
-"""Modal app: training function + inference function."""
+"""Modal app: training function + inference function.
+
+Uses plain HF stack (transformers + peft + trl + bitsandbytes) instead of Unsloth
+to avoid dependency conflicts. For 884 training examples on an L4, the ~2x speedup
+from Unsloth is not worth the integration headaches.
+"""
 
 from pathlib import Path
 
@@ -8,20 +13,25 @@ from training.config import TrainingConfig
 
 app = modal.App("formrecap-lora")
 
+# Plain HF stack — no Unsloth, no dependency hell.
+# Pinned versions known to work together (April 2026).
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("git")
     .pip_install(
-        "torch==2.4.0",
-        "unsloth[cu121-torch240] @ git+https://github.com/unslothai/unsloth.git",
-        "trl==0.9.6",
-        "peft==0.12.0",
-        "transformers==4.44.0",
-        "datasets==2.21.0",
-        "bitsandbytes==0.43.0",
-        "accelerate==0.33.0",
+        "torch==2.6.0",
+        "transformers==4.48.3",
+        "peft==0.15.1",
+        "trl==0.16.1",
+        "datasets==3.5.0",
+        "accelerate==1.5.0",
+        "bitsandbytes==0.45.4",
+        "huggingface_hub==0.29.3",
+        "hf_transfer==0.1.9",
+        "rich==14.0.0",
+        "scipy>=1.13",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .add_local_python_source("training")
 )
 
 volume = modal.Volume.from_name("formrecap-lora", create_if_missing=True)
@@ -38,50 +48,71 @@ VOLUME_PATH = "/vol"
 def train(run_id: str, train_file: str, val_file: str, config: dict | None = None) -> dict:
     """Fine-tune base model with LoRA. train_file/val_file are paths inside the volume."""
     import json
+    import os
+
     import torch
     from datasets import load_dataset
-    from transformers import TrainingArguments
-    from trl import SFTTrainer
-    from unsloth import FastLanguageModel
-    from unsloth.chat_templates import get_chat_template
+    from peft import LoraConfig as PeftLoraConfig
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    from trl import SFTConfig, SFTTrainer
 
     cfg = TrainingConfig(**(config or {}))
     vol = Path(VOLUME_PATH)
     run_dir = vol / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Load base in 4-bit
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=cfg.base_model,
-        max_seq_length=cfg.max_seq_length,
-        dtype=None,
-        load_in_4bit=cfg.load_in_4bit,
-    )
-    tokenizer = get_chat_template(tokenizer, chat_template="llama-3.1")
+    # HF token for gated model access (Llama 3.2 is a gated model)
+    hf_token = os.environ.get("HF_TOKEN", "")
 
-    # 2. Attach LoRA
-    model = FastLanguageModel.get_peft_model(
-        model,
+    # 1. Load tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(cfg.base_model, token=hf_token)
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "right"
+
+    # 2. Load base model in 4-bit (QLoRA)
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_use_double_quant=True,
+    )
+    model = AutoModelForCausalLM.from_pretrained(
+        cfg.base_model,
+        quantization_config=bnb_config,
+        device_map="auto",
+        torch_dtype=torch.bfloat16,
+        token=hf_token,
+    )
+    model.config.use_cache = False
+
+    # 3. LoRA config
+    peft_config = PeftLoraConfig(
         r=cfg.lora.r,
         lora_alpha=cfg.lora.alpha,
         lora_dropout=cfg.lora.dropout,
         target_modules=cfg.lora.target_modules,
         use_dora=cfg.lora.use_dora,
         bias="none",
-        use_gradient_checkpointing="unsloth",
-        random_state=cfg.seed,
+        task_type="CAUSAL_LM",
     )
 
-    # 3. Load datasets
+    # 4. Load datasets — format messages into text via chat template
     def format_prompts(examples):
-        texts = [tokenizer.apply_chat_template(m, tokenize=False, add_generation_prompt=False) for m in examples["messages"]]
+        texts = [
+            tokenizer.apply_chat_template(m, tokenize=False, add_generation_prompt=False)
+            for m in examples["messages"]
+        ]
         return {"text": texts}
 
-    ds_train = load_dataset("json", data_files=str(vol / train_file), split="train").map(format_prompts, batched=True)
-    ds_val = load_dataset("json", data_files=str(vol / val_file), split="train").map(format_prompts, batched=True)
+    ds_train = load_dataset("json", data_files=str(vol / train_file), split="train").map(
+        format_prompts, batched=True
+    )
+    ds_val = load_dataset("json", data_files=str(vol / val_file), split="train").map(
+        format_prompts, batched=True
+    )
 
-    # 4. Train
-    training_args = TrainingArguments(
+    # 5. SFT training config
+    sft_config = SFTConfig(
         output_dir=str(run_dir),
         num_train_epochs=cfg.epochs,
         per_device_train_batch_size=cfg.per_device_train_batch_size,
@@ -99,23 +130,27 @@ def train(run_id: str, train_file: str, val_file: str, config: dict | None = Non
         save_strategy=cfg.save_strategy,
         save_total_limit=cfg.epochs,
         report_to="none",
+        max_length=cfg.max_length,
+        packing=False,
+        dataset_text_field="text",
+        gradient_checkpointing=True,
+        gradient_checkpointing_kwargs={"use_reentrant": False},
     )
 
+    # 6. Create trainer with PEFT config
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         train_dataset=ds_train,
         eval_dataset=ds_val,
-        dataset_text_field="text",
-        max_seq_length=cfg.max_seq_length,
-        packing=False,
-        args=training_args,
+        peft_config=peft_config,
+        args=sft_config,
     )
 
     train_result = trainer.train()
 
-    # 5. Save adapter + manifest
-    model.save_pretrained(str(run_dir / "adapter"))
+    # 7. Save adapter + manifest
+    trainer.save_model(str(run_dir / "adapter"))
     tokenizer.save_pretrained(str(run_dir / "adapter"))
 
     # Identify best checkpoint by val loss
@@ -164,25 +199,36 @@ def run_train(
 def predict_with_logprobs(
     run_id: str,
     messages: list[dict],
-    base_model: str = "unsloth/Llama-3.2-3B-Instruct",
+    base_model: str = "meta-llama/Llama-3.2-3B-Instruct",
     max_new_tokens: int = 128,
 ) -> dict:
     """Run inference with a fine-tuned adapter. Returns predicted text + first-token logprobs."""
     import torch
-    from unsloth import FastLanguageModel
-    from unsloth.chat_templates import get_chat_template
+    from peft import PeftModel
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
     vol = Path(VOLUME_PATH)
     adapter_path = vol / "runs" / run_id / "adapter"
 
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=str(adapter_path),
-        max_seq_length=512,
-        dtype=None,
+    # Load tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(str(adapter_path))
+
+    # Load base model in 4-bit
+    bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
     )
-    tokenizer = get_chat_template(tokenizer, chat_template="llama-3.1")
-    FastLanguageModel.for_inference(model)
+    base = AutoModelForCausalLM.from_pretrained(
+        base_model,
+        quantization_config=bnb_config,
+        device_map="auto",
+        torch_dtype=torch.bfloat16,
+    )
+
+    # Load LoRA adapter on top
+    model = PeftModel.from_pretrained(base, str(adapter_path))
+    model.eval()
 
     inputs = tokenizer.apply_chat_template(
         messages, tokenize=True, add_generation_prompt=True, return_tensors="pt"
@@ -200,7 +246,7 @@ def predict_with_logprobs(
             pad_token_id=tokenizer.eos_token_id,
         )
 
-    generated_ids = output.sequences[0][inputs.shape[1]:]
+    generated_ids = output.sequences[0][inputs.shape[1] :]
     text = tokenizer.decode(generated_ids, skip_special_tokens=True)
 
     # First-token logprobs
@@ -218,7 +264,7 @@ def predict_with_logprobs(
             "logprob": float(v),
             "prob": float(first_probs[tid]),
         }
-        for tid, v in zip(topk_ids, topk_vals)
+        for tid, v in zip(topk_ids, topk_vals, strict=True)
     ]
 
     emitted_first_token_id = int(generated_ids[0])
@@ -241,14 +287,20 @@ def run_predict_smoke(run_id: str = "baseline-3b"):
     import json
 
     messages = [
-        {"role": "system", "content": (
-            "You analyse form interaction event sequences and classify the likely "
-            "abandonment reason. Respond with a digit class code 1-6 on the first line, "
-            "then a JSON object on the second line with class, reason, and confidence fields. "
-            "Classes: 1=validation_error, 2=distraction, 3=comparison_shopping, "
-            "4=accidental_exit, 5=bot, 6=committed_leave."
-        )},
-        {"role": "user", "content": "Events: focus:email, input:email(x20), blur:email(invalid_format), exit"},
+        {
+            "role": "system",
+            "content": (
+                "You analyse form interaction event sequences and classify the likely "
+                "abandonment reason. Respond with a digit class code 1-6 on the first line, "
+                "then a JSON object on the second line with class, reason, and confidence fields. "
+                "Classes: 1=validation_error, 2=distraction, 3=comparison_shopping, "
+                "4=accidental_exit, 5=bot, 6=committed_leave."
+            ),
+        },
+        {
+            "role": "user",
+            "content": "Events: focus:email, input:email(x20), blur:email(invalid_format), exit",
+        },
     ]
     result = predict_with_logprobs.remote(run_id=run_id, messages=messages)
     print(json.dumps(result, indent=2, default=str))
