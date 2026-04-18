@@ -1,4 +1,4 @@
-const API_BASE = "https://api.formrecap-lab.com";
+const API_BASE = "https://formrecap-classify.jasonm4130.workers.dev";
 let demoToken = null;
 
 async function onTurnstileVerified(tsToken) {
