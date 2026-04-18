@@ -2,6 +2,16 @@
 
 from dataclasses import dataclass, field
 
+SYSTEM_PROMPT = (
+    "You analyse form interaction event sequences and classify the likely "
+    "abandonment reason. Respond with a digit class code 1-6 on the first line, "
+    "then a JSON object on the second line with class, reason, and confidence fields. "
+    "Classes: 1=validation_error, 2=distraction, 3=comparison_shopping, "
+    "4=accidental_exit, 5=bot, 6=committed_leave."
+)
+
+VOLUME_PATH = "/vol"
+
 
 @dataclass
 class LoraConfig:
