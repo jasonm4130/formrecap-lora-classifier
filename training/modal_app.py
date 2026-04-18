@@ -9,7 +9,7 @@ from pathlib import Path
 
 import modal
 
-from training.config import TrainingConfig
+from training.config import SYSTEM_PROMPT, VOLUME_PATH, TrainingConfig
 
 app = modal.App("formrecap-lora")
 
@@ -35,7 +35,27 @@ image = (
 )
 
 volume = modal.Volume.from_name("formrecap-lora", create_if_missing=True)
-VOLUME_PATH = "/vol"
+
+
+def _adapt_messages(tokenizer, messages: list[dict]) -> list[dict]:
+    """Merge system message into user message for models that don't support system role."""
+    if not any(m["role"] == "system" for m in messages):
+        return messages
+    try:
+        tokenizer.apply_chat_template([{"role": "system", "content": "test"}], tokenize=False)
+        return messages
+    except Exception:
+        pass
+    system = next(m["content"] for m in messages if m["role"] == "system")
+    adapted = []
+    for m in messages:
+        if m["role"] == "system":
+            continue
+        if m["role"] == "user" and not adapted:
+            adapted.append({"role": "user", "content": f"{system}\n\n{m['content']}"})
+        else:
+            adapted.append(m)
+    return adapted
 
 
 @app.function(
@@ -102,32 +122,10 @@ def train(run_id: str, train_file: str, val_file: str, config: dict | None = Non
     )
 
     # 4. Load datasets — format messages into text via chat template
-    def _adapt_messages(messages: list[dict]) -> list[dict]:
-        """Merge system message into user message for models that don't support system role."""
-        if not any(m["role"] == "system" for m in messages):
-            return messages
-        # Test if tokenizer supports system role
-        try:
-            tokenizer.apply_chat_template([{"role": "system", "content": "test"}], tokenize=False)
-            return messages  # System role supported
-        except Exception:
-            pass
-        # Merge system into first user message
-        system = next(m["content"] for m in messages if m["role"] == "system")
-        adapted = []
-        for m in messages:
-            if m["role"] == "system":
-                continue
-            if m["role"] == "user" and not adapted:
-                adapted.append({"role": "user", "content": f"{system}\n\n{m['content']}"})
-            else:
-                adapted.append(m)
-        return adapted
-
     def format_prompts(examples):
         texts = [
             tokenizer.apply_chat_template(
-                _adapt_messages(m), tokenize=False, add_generation_prompt=False
+                _adapt_messages(tokenizer, m), tokenize=False, add_generation_prompt=False
             )
             for m in examples["messages"]
         ]
@@ -345,22 +343,7 @@ class Predictor:
         import torch
 
         # Adapt messages for models without system role support (Gemma, Mistral)
-        adapted = messages
-        if any(m["role"] == "system" for m in messages):
-            try:
-                self.tokenizer.apply_chat_template(
-                    [{"role": "system", "content": "test"}], tokenize=False
-                )
-            except Exception:
-                system = next(m["content"] for m in messages if m["role"] == "system")
-                adapted = []
-                for m in messages:
-                    if m["role"] == "system":
-                        continue
-                    if m["role"] == "user" and not adapted:
-                        adapted.append({"role": "user", "content": f"{system}\n\n{m['content']}"})
-                    else:
-                        adapted.append(m)
+        adapted = _adapt_messages(self.tokenizer, messages)
 
         inputs = self.tokenizer.apply_chat_template(
             adapted, tokenize=True, add_generation_prompt=True, return_tensors="pt"
@@ -419,13 +402,7 @@ def run_predict_smoke(run_id: str = "baseline-3b"):
     messages = [
         {
             "role": "system",
-            "content": (
-                "You analyse form interaction event sequences and classify the likely "
-                "abandonment reason. Respond with a digit class code 1-6 on the first line, "
-                "then a JSON object on the second line with class, reason, and confidence fields. "
-                "Classes: 1=validation_error, 2=distraction, 3=comparison_shopping, "
-                "4=accidental_exit, 5=bot, 6=committed_leave."
-            ),
+            "content": SYSTEM_PROMPT,
         },
         {
             "role": "user",
