@@ -40,7 +40,7 @@ VOLUME_PATH = "/vol"
 
 @app.function(
     image=image,
-    gpu="L4",
+    gpu="H100",
     volumes={VOLUME_PATH: volume},
     timeout=7200,
     secrets=[modal.Secret.from_name("huggingface")],

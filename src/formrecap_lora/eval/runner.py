@@ -126,7 +126,7 @@ def summarise(name: str, preds: list, labels: list, confidences: list | None = N
         if p is not None
     ]
     if not valid_pairs:
-        return {"name": name, "macro_f1": 0.0}
+        return {"name": name, "macro_f1": 0.0, "macro_f1_ci": [0.0, 0.0]}
     p = [pp for pp, _, _ in valid_pairs]
     ll = [ll for _, ll, _ in valid_pairs]
     c = [cc for _, _, cc in valid_pairs]

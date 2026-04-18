@@ -78,73 +78,112 @@ def load_real_test(path: str) -> list[dict]:
     return [json.loads(l) for l in Path(path).read_text().splitlines() if l.strip()]
 
 
+def _process_one(
+    client: OpenAI,
+    model_name: str,
+    rec: dict,
+    base_model: str,
+    idx: int,
+    total: int,
+) -> dict:
+    """Process a single record. Returns a result dict."""
+    messages = build_messages(rec["events"], base_model)
+    empty = {
+        "pred": None,
+        "verbalized_conf": 0.5,
+        "logprob_conf": 0.0,
+        "per_class": {k: -100.0 for k in range(1, 7)},
+    }
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            max_tokens=64,
+            temperature=0,
+            logprobs=True,
+            top_logprobs=10,
+        )
+    except Exception as e:
+        console.print(f"[yellow]  Call {idx + 1}/{total} failed: {e}[/yellow]")
+        return empty
+
+    text = response.choices[0].message.content or ""
+    logprobs_data = response.choices[0].logprobs
+
+    result = dict(empty)
+
+    if logprobs_data and logprobs_data.content:
+        # Find the first digit token (Mistral prepends a space token)
+        digit_token = None
+        for tok in logprobs_data.content:
+            if tok.token.strip() and tok.token.strip()[0].isdigit():
+                digit_token = tok
+                break
+        if digit_token is None:
+            digit_token = logprobs_data.content[0]
+
+        token_str = digit_token.token.strip()
+        try:
+            code = int(token_str)
+            assert 1 <= code <= 6
+            result["pred"] = code
+        except Exception:
+            pass
+
+        result["logprob_conf"] = math.exp(digit_token.logprob)
+        top_lp = {lp.token.strip(): lp.logprob for lp in digit_token.top_logprobs}
+        result["per_class"] = {k: top_lp.get(str(k), -100.0) for k in range(1, 7)}
+
+    # Fallback: extract class from text if logprob extraction missed it
+    if result["pred"] is None and text.strip():
+        first_char = text.strip()[0]
+        try:
+            code = int(first_char)
+            if 1 <= code <= 6:
+                result["pred"] = code
+        except ValueError:
+            pass
+
+    try:
+        _, _, rest = text.strip().partition("\n")
+        obj = json.loads(rest.strip())
+        result["verbalized_conf"] = float(obj.get("confidence", 0.5))
+    except Exception:
+        pass
+
+    return result
+
+
 def predict_batch(
     client: OpenAI,
     model_name: str,
     records: list[dict],
     base_model: str,
+    max_workers: int = 8,
 ) -> dict:
-    """Run predictions for a batch of records. Returns preds, confidences, logprobs."""
-    preds: list[int | None] = []
-    verbalized_conf: list[float] = []
-    logprob_conf: list[float] = []
-    per_class_logprobs: list[dict[int, float]] = []
+    """Run predictions in parallel. Returns preds, confidences, logprobs."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    for i, rec in enumerate(records):
-        messages = build_messages(rec["events"], base_model)
-        try:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=messages,
-                max_tokens=128,
-                temperature=0,
-                logprobs=True,
-                top_logprobs=10,
-            )
-        except Exception as e:
-            console.print(f"[yellow]  Call {i + 1}/{len(records)} failed: {e}[/yellow]")
-            preds.append(None)
-            verbalized_conf.append(0.5)
-            logprob_conf.append(0.0)
-            per_class_logprobs.append({k: -100.0 for k in range(1, 7)})
-            continue
+    results = [None] * len(records)
+    total = len(records)
+    done = 0
 
-        text = response.choices[0].message.content or ""
-        logprobs_data = response.choices[0].logprobs
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {
+            pool.submit(_process_one, client, model_name, rec, base_model, i, total): i
+            for i, rec in enumerate(records)
+        }
+        for future in as_completed(futures):
+            idx = futures[future]
+            results[idx] = future.result()
+            done += 1
+            if done % 10 == 0:
+                console.print(f"  [{done}/{total}]")
 
-        # Extract predicted class from first token
-        if logprobs_data and logprobs_data.content:
-            first_token = logprobs_data.content[0]
-            token_str = first_token.token.strip()
-            try:
-                code = int(token_str)
-                assert 1 <= code <= 6
-                preds.append(code)
-            except Exception:
-                preds.append(None)
-
-            # First-token logprob confidence
-            logprob_conf.append(math.exp(first_token.logprob))
-
-            # Per-class logprobs from top_logprobs
-            top_lp = {lp.token.strip(): lp.logprob for lp in first_token.top_logprobs}
-            per_class = {k: top_lp.get(str(k), -100.0) for k in range(1, 7)}
-            per_class_logprobs.append(per_class)
-        else:
-            preds.append(None)
-            logprob_conf.append(0.0)
-            per_class_logprobs.append({k: -100.0 for k in range(1, 7)})
-
-        # Verbalized confidence from JSON output
-        try:
-            _, _, rest = text.strip().partition("\n")
-            obj = json.loads(rest.strip())
-            verbalized_conf.append(float(obj.get("confidence", 0.5)))
-        except Exception:
-            verbalized_conf.append(0.5)
-
-        if (i + 1) % 10 == 0:
-            console.print(f"  [{i + 1}/{len(records)}]")
+    preds = [r["pred"] for r in results]
+    verbalized_conf = [r["verbalized_conf"] for r in results]
+    logprob_conf = [r["logprob_conf"] for r in results]
+    per_class_logprobs = [r["per_class"] for r in results]
 
     return {
         "preds": preds,
@@ -209,17 +248,26 @@ MODEL_CONFIGS = [
 @click.option("--val-file", default="data/synthetic/val-2026-04-18.jsonl")
 @click.option("--test-real", default="data/real/test.jsonl")
 @click.option("--output-dir", default="docs/results")
-@click.option(
-    "--server-urls", required=True, help="Comma-separated vLLM server URLs (one per model)"
-)
-def main(val_file: str, test_real: str, output_dir: str, server_urls: str):
+@click.option("--server-url", required=True, help="vLLM server URL")
+@click.option("--base-model", required=True, help="Base model name")
+@click.option("--run-id", required=True, help="LoRA adapter run ID")
+@click.option("--label", default="", help="Display label for the model")
+def main(
+    val_file: str,
+    test_real: str,
+    output_dir: str,
+    server_url: str,
+    base_model: str,
+    run_id: str,
+    label: str,
+):
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    urls = server_urls.split(",")
-    assert len(urls) == len(MODEL_CONFIGS), f"Expected {len(MODEL_CONFIGS)} URLs, got {len(urls)}"
-    for cfg, url in zip(MODEL_CONFIGS, urls):
-        cfg["server_url"] = url.strip()
+    label = label or base_model.split("/")[-1]
+    configs = [
+        {"base_model": base_model, "run_id": run_id, "label": label, "server_url": server_url}
+    ]
 
     console.print("[bold]Loading data...[/bold]")
     val = load_jsonl_chat(val_file)
@@ -228,7 +276,7 @@ def main(val_file: str, test_real: str, output_dir: str, server_urls: str):
 
     all_results: list[dict] = []
 
-    for cfg in MODEL_CONFIGS:
+    for cfg in configs:
         base_model = cfg["base_model"]
         run_id = cfg["run_id"]
         label = cfg["label"]

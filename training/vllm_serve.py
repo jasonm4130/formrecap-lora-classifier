@@ -90,7 +90,7 @@ def serve_gemma_2b():
     cmd = _build_vllm_cmd(
         "google/gemma-2b-it",
         lora_adapters={
-            "gemma-2b": f"{VOLUME_PATH}/runs/gemma-2b/adapter",
+            "gemma-2b-cf": f"{VOLUME_PATH}/runs/gemma-2b-cf/adapter",
         },
     )
     subprocess.Popen(" ".join(cmd), shell=True)
@@ -108,13 +108,19 @@ def serve_gemma_2b():
 @modal.concurrent(max_inputs=50)
 @modal.web_server(port=8000, startup_timeout=600)
 def serve_mistral_7b():
+    import os
     import subprocess
+
+    # Force volume reload and verify adapter exists
+    volume.reload()
+    adapter_path = f"{VOLUME_PATH}/runs/mistral-7b-cf/adapter"
+    files = os.listdir(adapter_path)
+    print(f"[vllm_serve] Adapter files at {adapter_path}: {files}")
 
     cmd = _build_vllm_cmd(
         "mistralai/Mistral-7B-Instruct-v0.2",
         lora_adapters={
-            "mistral-7b": f"{VOLUME_PATH}/runs/mistral-7b/adapter",
+            "mistral-7b-cf": f"{VOLUME_PATH}/runs/mistral-7b-cf/adapter",
         },
-        quantization="bitsandbytes",
     )
     subprocess.Popen(" ".join(cmd), shell=True)
