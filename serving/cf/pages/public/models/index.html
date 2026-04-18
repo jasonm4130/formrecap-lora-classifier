@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Models — FormRecap LoRA Classifier</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header>
+    <div class="badge">Adapters</div>
+    <h1>Trained <span class="accent">Models</span></h1>
+    <p class="subtitle">Five LoRA adapters trained on the same 884-example synthetic dataset. All adapters available on HuggingFace Hub.</p>
+  </header>
+
+  <nav>
+    <div class="nav-links">
+      <a href="/">Demo</a>
+      <a href="/results/">Results</a>
+      <a href="/models/" class="active">Models</a>
+      <a href="/architecture/">Architecture</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="model-cards">
+
+      <div class="model-card">
+        <h3>Gemma 2B Full LoRA</h3>
+        <div class="meta">
+          <strong>Base:</strong> google/gemma-2b-it<br>
+          <strong>Config:</strong> r=16, alpha=32, DoRA<br>
+          <strong>Training:</strong> ~30 min, $0.40, Modal L4
+        </div>
+        <div class="f1-badge">F1 = 0.916</div><br>
+        <a class="hf-link" href="https://huggingface.co/jasonm4130/formrecap-gemma-2b-lora" target="_blank">View on HuggingFace →</a>
+      </div>
+
+      <div class="model-card">
+        <h3>Llama 3.2 3B LoRA</h3>
+        <div class="meta">
+          <strong>Base:</strong> meta-llama/Llama-3.2-3B-Instruct<br>
+          <strong>Config:</strong> r=16, alpha=32, DoRA<br>
+          <strong>Training:</strong> ~30 min, $0.40, Modal L4
+        </div>
+        <div class="f1-badge">F1 = 0.856</div><br>
+        <a class="hf-link" href="https://huggingface.co/jasonm4130/formrecap-llama-3.2-3b-lora" target="_blank">View on HuggingFace →</a>
+      </div>
+
+      <div class="model-card">
+        <h3>Mistral 7B CF LoRA</h3>
+        <div class="meta">
+          <strong>Base:</strong> mistralai/Mistral-7B-Instruct-v0.2<br>
+          <strong>Config:</strong> r=8, alpha=16, no DoRA (CF-constrained)<br>
+          <strong>Training:</strong> ~30 min, $0.40, Modal L4
+        </div>
+        <div class="f1-badge">F1 = 0.760</div><br>
+        <a class="hf-link" href="https://huggingface.co/jasonm4130/formrecap-mistral-7b-cf-lora" target="_blank">View on HuggingFace →</a>
+      </div>
+
+      <div class="model-card">
+        <h3>Gemma 2B CF LoRA</h3>
+        <div class="meta">
+          <strong>Base:</strong> google/gemma-2b-it<br>
+          <strong>Config:</strong> r=8, alpha=16, no DoRA (CF-constrained)<br>
+          <strong>Training:</strong> ~30 min, $0.40, Modal L4
+        </div>
+        <div class="f1-badge">F1 = 0.249</div><br>
+        <a class="hf-link" href="https://huggingface.co/jasonm4130/formrecap-gemma-2b-cf-lora" target="_blank">View on HuggingFace →</a>
+      </div>
+
+      <div class="model-card muted">
+        <h3>Llama 1B LoRA</h3>
+        <div class="meta">
+          <strong>Base:</strong> meta-llama/Llama-3.2-1B-Instruct<br>
+          <strong>Config:</strong> r=16, alpha=32, DoRA<br>
+          <strong>Training:</strong> ~20 min, $0.30, Modal L4
+        </div>
+        <div class="f1-badge">F1 = 0.196</div><br>
+        <span style="font-family:var(--mono); font-size:12px; color:var(--text-muted); margin-top:12px; display:inline-block;">Not published — too low quality</span>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-links">
+      <a href="https://github.com/jasonm4130/formrecap-lora-classifier">GitHub</a>
+      <span class="sep">&middot;</span>
+      <a href="https://huggingface.co/jasonm4130">HuggingFace</a>
+      <span class="sep">&middot;</span>
+      <span class="tech">Gemma 2B + LoRA · Cloudflare Workers AI</span>
+    </div>
+  </footer>
+</body>
+</html>
