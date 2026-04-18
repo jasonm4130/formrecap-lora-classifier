@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture — FormRecap LoRA Classifier</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header>
+    <div class="badge">System Design</div>
+    <h1>How It <span class="accent">Works</span></h1>
+    <p class="subtitle">Train once on Modal, deploy twice — to Modal for calibrated inference and Cloudflare Workers AI for edge latency.</p>
+  </header>
+
+  <nav>
+    <div class="nav-links">
+      <a href="/">Demo</a>
+      <a href="/results/">Results</a>
+      <a href="/models/">Models</a>
+      <a href="/architecture/" class="active">Architecture</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="arch-section">
+      <h2>Train Once, Deploy Twice</h2>
+      <p>The same LoRA adapter runs on two inference backends. Cloudflare Workers AI serves at the edge with sub-200ms latency but only supports verbalized confidence. Modal serves via vLLM with full logprob access for calibrated confidence scores.</p>
+      <div class="arch-diagram">
+         Training Data (884 examples)
+                  │
+                  ▼
+      ┌───────────────────────┐
+      │   Modal L4 GPU        │
+      │   QLoRA + PEFT + TRL  │
+      │   ~30 min, ~$0.40     │
+      └───────────┬───────────┘
+                  │
+            LoRA Adapter
+            ┌─────┴─────┐
+            │           │
+            ▼           ▼
+   ┌──────────────┐  ┌──────────────┐
+   │  Modal vLLM  │  │  CF Workers  │
+   │  Gemma 2B    │  │  AI (edge)   │
+   │              │  │  Mistral 7B  │
+   │  logprobs ✓  │  │  logprobs ✗  │
+   │  calibrated  │  │  verbalized  │
+   └──────────────┘  └──────────────┘</div>
+    </div>
+
+    <div class="arch-section">
+      <h2>Calibration Pipeline</h2>
+      <p>The model's first output token is always a digit 1-6, each mapping to one of six abandonment classes. In the Llama/Gemma tokenizer, each digit is a single token — so its logprob gives a clean per-class probability signal.</p>
+      <p>Verbalized confidence (the number the model writes in its JSON output) has an ECE of 0.145. Extracting the token logprob directly drops ECE to 0.103. Fitting a single temperature scalar T on the validation set brings ECE down to 0.056.</p>
+      <p>The calibration scalar T is fit by minimising negative log-likelihood on 108 validation examples. For the Gemma 2B adapter, T = 0.500 — the model is already slightly underconfident in its logprobs, so scaling sharpens the distribution.</p>
+    </div>
+
+    <div class="arch-section">
+      <h2>Why Not Just Use CF Workers AI?</h2>
+      <p>Cloudflare's BYO-LoRA endpoint does not expose token logprobs. The API returns only the generated text and optionally raw bytes. Without logprobs, the only confidence signal is whatever the model writes in its output — which is poorly calibrated.</p>
+      <p>For latency-sensitive, cost-sensitive paths where approximate confidence is acceptable, CF Workers AI is the right choice. For paths where confidence drives downstream decisions (like choosing a recovery flow), the Modal path with calibrated logprobs is necessary.</p>
+    </div>
+
+    <div class="arch-section">
+      <h2>Protection Stack</h2>
+      <p>The demo endpoint has six layers of abuse mitigation. CF Workers AI on paid tier has no native hard spend cap, so the Worker implements its own.</p>
+      <ol class="protection-list">
+        <li><span class="layer-num">1</span> Cloudflare Turnstile — bot detection challenge on page load</li>
+        <li><span class="layer-num">2</span> Rate limiting — 10 req/min/IP via CF ruleset</li>
+        <li><span class="layer-num">3</span> HMAC demo tokens — 10-minute TTL, signed on Turnstile verification</li>
+        <li><span class="layer-num">4</span> Input validation — 2KB max, regex-validated event trace format</li>
+        <li><span class="layer-num">5</span> Daily neuron budget — KV-tracked counter, 503 when exhausted</li>
+        <li><span class="layer-num">6</span> Kill switch — KV flag, instant disable without redeployment</li>
+      </ol>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-links">
+      <a href="https://github.com/jasonm4130/formrecap-lora-classifier">GitHub</a>
+      <span class="sep">&middot;</span>
+      <a href="https://huggingface.co/jasonm4130">HuggingFace</a>
+      <span class="sep">&middot;</span>
+      <span class="tech">Gemma 2B + LoRA · Cloudflare Workers AI</span>
+    </div>
+  </footer>
+</body>
+</html>
