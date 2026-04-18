@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results — FormRecap LoRA Classifier</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header>
+    <div class="badge">Evaluation</div>
+    <h1>Evaluation <span class="accent">Results</span></h1>
+    <p class="subtitle">All models evaluated on 52 hand-labeled real test examples. Metrics include Macro-F1, per-class F1, ECE, and calibration analysis.</p>
+  </header>
+
+  <nav>
+    <div class="nav-links">
+      <a href="/">Demo</a>
+      <a href="/results/" class="active">Results</a>
+      <a href="/models/">Models</a>
+      <a href="/architecture/">Architecture</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="chart-section">
+      <h2>Model Comparison</h2>
+      <p class="chart-desc">Fine-tuned adapters vs zero-shot baselines on 52 hand-labeled real test examples.</p>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>System</th>
+            <th>Params</th>
+            <th class="numeric">Macro-F1</th>
+            <th class="numeric">95% CI</th>
+            <th class="numeric">ECE</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Zero-shot Gemma 2B</td><td>2B</td>
+            <td class="numeric">0.063</td><td class="numeric">[0.040, 0.089]</td><td class="numeric">0.755</td>
+          </tr>
+          <tr>
+            <td>Zero-shot Mistral 7B</td><td>7B</td>
+            <td class="numeric">0.095</td><td class="numeric">[0.063, 0.128]</td><td class="numeric">0.645</td>
+          </tr>
+          <tr>
+            <td>Zero-shot Llama 3B</td><td>3B</td>
+            <td class="numeric">0.108</td><td class="numeric">[0.029, 0.186]</td><td class="numeric">0.632</td>
+          </tr>
+          <tr>
+            <td>Llama 1B LoRA</td><td>1B</td>
+            <td class="numeric">0.196</td><td class="numeric">[0.117, 0.274]</td><td class="numeric">0.154</td>
+          </tr>
+          <tr>
+            <td>Gemma 2B CF LoRA (r=8)</td><td>2B</td>
+            <td class="numeric">0.249</td><td class="numeric">[0.151, 0.336]</td><td class="numeric">0.129</td>
+          </tr>
+          <tr>
+            <td>Mistral 7B CF LoRA</td><td>7B</td>
+            <td class="numeric">0.760</td><td class="numeric">[0.648, 0.852]</td><td class="numeric">0.075</td>
+          </tr>
+          <tr>
+            <td>Llama 3.2 3B LoRA</td><td>3B</td>
+            <td class="numeric">0.856</td><td class="numeric">[0.764, 0.930]</td><td class="numeric">0.094</td>
+          </tr>
+          <tr class="highlight">
+            <td>Gemma 2B Full LoRA</td><td>2B</td>
+            <td class="numeric">0.916</td><td class="numeric">[0.813, 0.981]</td><td class="numeric">0.056</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="chart-section">
+      <h2>Per-Class F1</h2>
+      <p class="chart-desc">Gemma 2B Full LoRA performance by class. Strongest on distraction and accidental_exit, weakest on committed_leave.</p>
+      <div class="chart-container">
+        <canvas id="perClassChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-section">
+      <h2>Calibration: ECE Comparison</h2>
+      <p class="chart-desc">Expected Calibration Error across confidence sources. Temperature scaling on logprobs drops ECE from 0.145 (verbalized) to 0.056 (calibrated).</p>
+      <div class="chart-container">
+        <canvas id="eceChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-section">
+      <h2>Reliability Diagram</h2>
+      <p class="chart-desc">Confidence vs accuracy per bucket. Perfect calibration follows the diagonal. After temperature scaling, the curve tightens toward the diagonal.</p>
+      <div class="chart-container">
+        <canvas id="reliabilityChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-section">
+      <h2>Confusion Matrix</h2>
+      <p class="chart-desc">Gemma 2B Full LoRA predictions vs true labels. Rows are true classes, columns are predicted classes.</p>
+      <div class="chart-container" id="confusionContainer"></div>
+    </div>
+
+    <div class="chart-section">
+      <h2>Training Loss Curves</h2>
+      <p class="chart-desc">Validation loss per epoch across all trained models. All models converge by epoch 3.</p>
+      <div class="chart-container">
+        <canvas id="lossChart"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-links">
+      <a href="https://github.com/jasonm4130/formrecap-lora-classifier">GitHub</a>
+      <span class="sep">&middot;</span>
+      <a href="https://huggingface.co/jasonm4130">HuggingFace</a>
+      <span class="sep">&middot;</span>
+      <span class="tech">Gemma 2B + LoRA · Cloudflare Workers AI</span>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="/results/results.js"></script>
+</body>
+</html>
