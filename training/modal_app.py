@@ -42,7 +42,7 @@ VOLUME_PATH = "/vol"
     image=image,
     gpu="L4",
     volumes={VOLUME_PATH: volume},
-    timeout=3600,
+    timeout=7200,
     secrets=[modal.Secret.from_name("huggingface")],
 )
 def train(run_id: str, train_file: str, val_file: str, config: dict | None = None) -> dict:
@@ -97,18 +97,46 @@ def train(run_id: str, train_file: str, val_file: str, config: dict | None = Non
     )
 
     # 4. Load datasets — format messages into text via chat template
+    def _adapt_messages(messages: list[dict]) -> list[dict]:
+        """Merge system message into user message for models that don't support system role."""
+        if not any(m["role"] == "system" for m in messages):
+            return messages
+        # Test if tokenizer supports system role
+        try:
+            tokenizer.apply_chat_template([{"role": "system", "content": "test"}], tokenize=False)
+            return messages  # System role supported
+        except Exception:
+            pass
+        # Merge system into first user message
+        system = next(m["content"] for m in messages if m["role"] == "system")
+        adapted = []
+        for m in messages:
+            if m["role"] == "system":
+                continue
+            if m["role"] == "user" and not adapted:
+                adapted.append({"role": "user", "content": f"{system}\n\n{m['content']}"})
+            else:
+                adapted.append(m)
+        return adapted
+
     def format_prompts(examples):
         texts = [
-            tokenizer.apply_chat_template(m, tokenize=False, add_generation_prompt=False)
+            tokenizer.apply_chat_template(
+                _adapt_messages(m), tokenize=False, add_generation_prompt=False
+            )
             for m in examples["messages"]
         ]
         return {"text": texts}
 
-    ds_train = load_dataset("json", data_files=str(vol / train_file), split="train").map(
-        format_prompts, batched=True
+    ds_train = (
+        load_dataset("json", data_files=str(vol / train_file), split="train")
+        .map(format_prompts, batched=True)
+        .remove_columns("messages")
     )
-    ds_val = load_dataset("json", data_files=str(vol / val_file), split="train").map(
-        format_prompts, batched=True
+    ds_val = (
+        load_dataset("json", data_files=str(vol / val_file), split="train")
+        .map(format_prompts, batched=True)
+        .remove_columns("messages")
     )
 
     # 5. SFT training config
@@ -183,103 +211,140 @@ def run_train(
     run_id: str = "baseline",
     train_file: str = "data/train.jsonl",
     val_file: str = "data/val.jsonl",
+    base_model: str = "",
 ):
-    manifest = train.remote(run_id=run_id, train_file=train_file, val_file=val_file)
+    config = {"base_model": base_model} if base_model else None
+    manifest = train.remote(run_id=run_id, train_file=train_file, val_file=val_file, config=config)
     print(manifest)
 
 
-@app.function(
+@app.cls(
     image=image,
     gpu="L4",
     volumes={VOLUME_PATH: volume},
     timeout=600,
-    min_containers=0,
+    scaledown_window=300,
     secrets=[modal.Secret.from_name("huggingface")],
 )
-def predict_with_logprobs(
-    run_id: str,
-    messages: list[dict],
-    base_model: str = "meta-llama/Llama-3.2-3B-Instruct",
-    max_new_tokens: int = 128,
-) -> dict:
-    """Run inference with a fine-tuned adapter. Returns predicted text + first-token logprobs."""
-    import torch
-    from peft import PeftModel
-    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+class Predictor:
+    """Keeps model loaded in GPU memory across calls. First call cold-starts (~40s),
+    subsequent calls are ~1-2s inference only."""
 
-    vol = Path(VOLUME_PATH)
-    adapter_path = vol / "runs" / run_id / "adapter"
+    run_id: str = modal.parameter(default="baseline-3b")
+    base_model: str = modal.parameter(default="meta-llama/Llama-3.2-3B-Instruct")
 
-    # Load tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(str(adapter_path))
+    @modal.enter()
+    def load_model(self):
+        import os
 
-    # Load base model in 4-bit
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16,
-    )
-    base = AutoModelForCausalLM.from_pretrained(
-        base_model,
-        quantization_config=bnb_config,
-        device_map="auto",
-        torch_dtype=torch.bfloat16,
-    )
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-    # Load LoRA adapter on top
-    model = PeftModel.from_pretrained(base, str(adapter_path))
-    model.eval()
+        hf_token = os.environ.get("HF_TOKEN", "")
 
-    inputs = tokenizer.apply_chat_template(
-        messages, tokenize=True, add_generation_prompt=True, return_tensors="pt"
-    ).to("cuda")
+        # Zero-shot mode: run_id="none" skips adapter loading
+        if self.run_id == "none":
+            self.tokenizer = AutoTokenizer.from_pretrained(self.base_model, token=hf_token)
+        else:
+            vol = Path(VOLUME_PATH)
+            adapter_path = vol / "runs" / self.run_id / "adapter"
+            self.tokenizer = AutoTokenizer.from_pretrained(str(adapter_path))
 
-    with torch.no_grad():
-        output = model.generate(
-            inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=False,
-            temperature=None,
-            top_p=None,
-            return_dict_in_generate=True,
-            output_scores=True,
-            pad_token_id=tokenizer.eos_token_id,
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+        )
+        base = AutoModelForCausalLM.from_pretrained(
+            self.base_model,
+            quantization_config=bnb_config,
+            token=hf_token,
+            device_map="auto",
+            torch_dtype=torch.bfloat16,
         )
 
-    generated_ids = output.sequences[0][inputs.shape[1] :]
-    text = tokenizer.decode(generated_ids, skip_special_tokens=True)
+        if self.run_id == "none":
+            self.model = base
+        else:
+            from peft import PeftModel
 
-    # First-token logprobs
-    first_scores = output.scores[0][0]  # (vocab_size,)
-    first_probs = torch.softmax(first_scores, dim=-1)
-    first_logprobs = torch.log_softmax(first_scores, dim=-1)
+            self.model = PeftModel.from_pretrained(base, str(adapter_path))
+        self.model.eval()
 
-    # Top-K candidates for the first token
-    topk = 10
-    topk_vals, topk_ids = torch.topk(first_logprobs, topk)
-    candidates = [
-        {
-            "token": tokenizer.decode([int(tid)]),
-            "token_id": int(tid),
-            "logprob": float(v),
-            "prob": float(first_probs[tid]),
+    @modal.method()
+    def predict_with_logprobs(
+        self,
+        messages: list[dict],
+        max_new_tokens: int = 128,
+    ) -> dict:
+        import torch
+
+        # Adapt messages for models without system role support (Gemma, Mistral)
+        adapted = messages
+        if any(m["role"] == "system" for m in messages):
+            try:
+                self.tokenizer.apply_chat_template(
+                    [{"role": "system", "content": "test"}], tokenize=False
+                )
+            except Exception:
+                system = next(m["content"] for m in messages if m["role"] == "system")
+                adapted = []
+                for m in messages:
+                    if m["role"] == "system":
+                        continue
+                    if m["role"] == "user" and not adapted:
+                        adapted.append({"role": "user", "content": f"{system}\n\n{m['content']}"})
+                    else:
+                        adapted.append(m)
+
+        inputs = self.tokenizer.apply_chat_template(
+            adapted, tokenize=True, add_generation_prompt=True, return_tensors="pt"
+        ).to("cuda")
+
+        with torch.no_grad():
+            output = self.model.generate(
+                inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                temperature=None,
+                top_p=None,
+                return_dict_in_generate=True,
+                output_scores=True,
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
+
+        generated_ids = output.sequences[0][inputs.shape[1] :]
+        text = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
+
+        first_scores = output.scores[0][0]
+        first_probs = torch.softmax(first_scores, dim=-1)
+        first_logprobs = torch.log_softmax(first_scores, dim=-1)
+
+        topk = 10
+        topk_vals, topk_ids = torch.topk(first_logprobs, topk)
+        candidates = [
+            {
+                "token": self.tokenizer.decode([int(tid)]),
+                "token_id": int(tid),
+                "logprob": float(v),
+                "prob": float(first_probs[tid]),
+            }
+            for tid, v in zip(topk_ids, topk_vals, strict=True)
+        ]
+
+        emitted_first_token_id = int(generated_ids[0])
+        emitted_first_logprob = float(first_logprobs[emitted_first_token_id])
+
+        return {
+            "text": text,
+            "first_token": {
+                "id": emitted_first_token_id,
+                "token": self.tokenizer.decode([emitted_first_token_id]),
+                "logprob": emitted_first_logprob,
+                "prob": float(first_probs[emitted_first_token_id]),
+            },
+            "top_candidates": candidates,
         }
-        for tid, v in zip(topk_ids, topk_vals, strict=True)
-    ]
-
-    emitted_first_token_id = int(generated_ids[0])
-    emitted_first_logprob = float(first_logprobs[emitted_first_token_id])
-
-    return {
-        "text": text,
-        "first_token": {
-            "id": emitted_first_token_id,
-            "token": tokenizer.decode([emitted_first_token_id]),
-            "logprob": emitted_first_logprob,
-            "prob": float(first_probs[emitted_first_token_id]),
-        },
-        "top_candidates": candidates,
-    }
 
 
 @app.local_entrypoint()
@@ -302,5 +367,6 @@ def run_predict_smoke(run_id: str = "baseline-3b"):
             "content": "Events: focus:email, input:email(x20), blur:email(invalid_format), exit",
         },
     ]
-    result = predict_with_logprobs.remote(run_id=run_id, messages=messages)
+    predictor = Predictor(run_id=run_id)
+    result = predictor.predict_with_logprobs.remote(messages=messages)
     print(json.dumps(result, indent=2, default=str))

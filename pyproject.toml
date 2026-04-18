@@ -9,7 +9,6 @@ authors = [{ name = "Jason Matthew" }]
 dependencies = [
     "modal>=0.64",
     "anthropic>=0.40",
-
     "scikit-learn>=1.5",
     "numpy>=2.0",
     "scipy>=1.13",
@@ -20,6 +19,7 @@ dependencies = [
     "rich>=13.0",
     "python-dotenv>=1.0",
     "httpx>=0.27",
+    "openai>=2.32.0",
 ]
 
 [project.optional-dependencies]

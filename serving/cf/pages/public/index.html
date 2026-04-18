@@ -3,24 +3,109 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FormRecap LoRA Classifier Demo</title>
+  <title>FormRecap LoRA Classifier — Live Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css" />
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
+  <div class="grain"></div>
+  <header>
+    <div class="badge">LIVE DEMO</div>
+    <h1>FormRecap <span class="accent">LoRA</span> Classifier</h1>
+    <p class="subtitle">A fine-tuned Gemma 2B model classifies form abandonment reasons from event traces. Trained with LoRA on 884 synthetic examples, deployed to Cloudflare Workers AI at the edge.</p>
+    <div class="stats-row">
+      <div class="stat"><span class="stat-value">0.916</span><span class="stat-label">Macro-F1</span></div>
+      <div class="stat"><span class="stat-value">2B</span><span class="stat-label">Parameters</span></div>
+      <div class="stat"><span class="stat-value">6</span><span class="stat-label">Classes</span></div>
+      <div class="stat"><span class="stat-value">884</span><span class="stat-label">Training examples</span></div>
+    </div>
+  </header>
+
   <main>
-    <h1>FormRecap LoRA Classifier</h1>
-    <p>Paste a form event trace. The model predicts abandonment reason. Powered by a fine-tuned Llama 3.2 3B LoRA served on Cloudflare Workers AI.</p>
-    <label for="events">Event trace</label>
-    <textarea id="events" rows="6" placeholder="focus:email, input:email(x8), blur:email(invalid_format), exit"></textarea>
-    <button id="try-example">Insert example</button>
-    <div class="cf-turnstile" data-sitekey="0x4AAAAAAC-9jQBlgwlLvaEP" data-callback="onTurnstileVerified"></div>
-    <button id="classify" disabled>Classify</button>
-    <pre id="result"></pre>
-    <footer>
-      <a href="https://github.com/jasonm4130/formrecap-lora-classifier">GitHub</a>
-    </footer>
+    <section class="input-section">
+      <div class="section-label">01 — Input</div>
+      <label for="events">Paste an event trace or try an example</label>
+      <div class="examples">
+        <button class="example-btn" data-class="1" data-trace="focus:email, input:email(x12), blur:email(invalid_format), focus:email, input:email(x8), blur:email(invalid_format), scroll:page(3200ms), focus:email, input:email(x15), blur:email(invalid_format), exit">
+          <span class="example-class">validation_error</span>
+          <span class="example-desc">Repeated email validation failures</span>
+        </button>
+        <button class="example-btn" data-class="2" data-trace="focus:first_name, input:first_name(x7), blur:first_name, focus:last_name, input:last_name(x9), blur:last_name, focus:email, input:email(x14), blur:email, scroll:page(185000ms), exit">
+          <span class="example-class">distraction</span>
+          <span class="example-desc">Long idle gap after steady input</span>
+        </button>
+        <button class="example-btn" data-class="3" data-trace="focus:plan_type, blur:plan_type, scroll:page(4200ms), focus:pricing, blur:pricing, scroll:page(6800ms), focus:features, blur:features, scroll:page(3100ms), exit">
+          <span class="example-class">comparison_shopping</span>
+          <span class="example-desc">Browsing plans without committing</span>
+        </button>
+        <button class="example-btn" data-class="4" data-trace="focus:card_number, input:card_number(x16), blur:card_number, focus:expiry, input:expiry(x5), blur:expiry, focus:cvv, input:cvv(x3), exit">
+          <span class="example-class">accidental_exit</span>
+          <span class="example-desc">Abrupt exit mid-checkout</span>
+        </button>
+        <button class="example-btn" data-class="5" data-trace="input:username(x22), input:email(x30), input:password(x18), submit">
+          <span class="example-class">bot</span>
+          <span class="example-desc">No focus events, direct injection</span>
+        </button>
+        <button class="example-btn" data-class="6" data-trace="focus:plan_type, blur:plan_type, scroll:page(2800ms), focus:terms, blur:terms, scroll:page(1500ms), exit">
+          <span class="example-class">committed_leave</span>
+          <span class="example-desc">Evaluated and decided no</span>
+        </button>
+      </div>
+      <textarea id="events" rows="4" placeholder="focus:field, input:field(xN), blur:field(reason), scroll:page(Nms), exit" spellcheck="false"></textarea>
+    </section>
+
+    <section class="auth-section">
+      <div class="cf-turnstile" data-sitekey="0x4AAAAAAC-9jQBlgwlLvaEP" data-callback="onTurnstileVerified" data-theme="dark"></div>
+    </section>
+
+    <button id="classify" disabled>
+      <span class="btn-text">Classify trace</span>
+      <span class="btn-loading" hidden>
+        <span class="spinner"></span> Running inference…
+      </span>
+    </button>
+
+    <section class="result-section" id="result-section" hidden>
+      <div class="section-label">02 — Result</div>
+      <div class="result-card">
+        <div class="result-header">
+          <div class="result-class" id="result-class"></div>
+          <div class="result-confidence" id="result-confidence"></div>
+        </div>
+        <div class="result-reason" id="result-reason"></div>
+        <details class="result-raw">
+          <summary>Raw JSON response</summary>
+          <pre id="result-json"></pre>
+        </details>
+      </div>
+    </section>
+
+    <section class="taxonomy">
+      <div class="section-label">Reference — 6 Class Taxonomy</div>
+      <div class="taxonomy-grid">
+        <div class="tax-item"><span class="tax-code">1</span><span class="tax-name">validation_error</span><span class="tax-desc">User hit a field error they couldn't resolve</span></div>
+        <div class="tax-item"><span class="tax-code">2</span><span class="tax-name">distraction</span><span class="tax-desc">User task-switched away (long idle gap)</span></div>
+        <div class="tax-item"><span class="tax-code">3</span><span class="tax-name">comparison_shopping</span><span class="tax-desc">Browsing/evaluating, not committing</span></div>
+        <div class="tax-item"><span class="tax-code">4</span><span class="tax-name">accidental_exit</span><span class="tax-desc">Closed tab or navigated away by mistake</span></div>
+        <div class="tax-item"><span class="tax-code">5</span><span class="tax-name">bot</span><span class="tax-desc">Automated non-human interaction</span></div>
+        <div class="tax-item"><span class="tax-code">6</span><span class="tax-name">committed_leave</span><span class="tax-desc">Intentionally chose not to complete</span></div>
+      </div>
+    </section>
   </main>
+
+  <footer>
+    <div class="footer-links">
+      <a href="https://github.com/jasonm4130/formrecap-lora-classifier">GitHub</a>
+      <span class="sep">·</span>
+      <a href="#">Blog Post</a>
+      <span class="sep">·</span>
+      <span class="tech">Gemma 2B + LoRA · Cloudflare Workers AI</span>
+    </div>
+  </footer>
+
   <script src="/app.js"></script>
 </body>
 </html>

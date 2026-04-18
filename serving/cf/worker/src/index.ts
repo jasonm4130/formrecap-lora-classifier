@@ -24,8 +24,18 @@ export default {
       });
     }
 
-    if (url.pathname === "/classify") return handleClassify(env, request);
-    if (url.pathname === "/issue-token") return handleToken(env, request);
-    return new Response("Not found", { status: 404 });
+    let response: Response;
+    if (url.pathname === "/classify") {
+      response = await handleClassify(env, request);
+    } else if (url.pathname === "/issue-token") {
+      response = await handleToken(env, request);
+    } else {
+      response = new Response("Not found", { status: 404 });
+    }
+
+    // Ensure CORS headers on ALL responses (not just preflight)
+    const corsResponse = new Response(response.body, response);
+    corsResponse.headers.set("Access-Control-Allow-Origin", "*");
+    return corsResponse;
   },
 };

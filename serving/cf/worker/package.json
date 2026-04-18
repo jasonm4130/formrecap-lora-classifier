@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "deploy:ci": "npx wrangler deploy",
+    "deploy:preview": "npx wrangler deploy --env preview"
   },
   "keywords": [],
   "author": "",

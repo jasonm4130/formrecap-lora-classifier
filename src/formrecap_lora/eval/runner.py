@@ -10,14 +10,17 @@ import numpy as np
 from rich.console import Console
 from rich.table import Table
 
-from formrecap_lora.data.primers import CLASS_NAMES
 from formrecap_lora.eval.baselines import (
     claude_haiku_baseline,
     few_shot_llama_via_cf,
     majority_class_baseline,
     zero_shot_llama_via_cf,
 )
-from formrecap_lora.eval.calibration import apply_temperature, calibrate_and_persist, fit_temperature
+from formrecap_lora.eval.calibration import (
+    apply_temperature,
+    calibrate_and_persist,
+    fit_temperature,
+)
 from formrecap_lora.eval.metrics import (
     bootstrap_ci,
     brier_score,
@@ -44,12 +47,14 @@ def load_jsonl_chat(path: str) -> list[dict]:
         first_line, _, rest = assistant.partition("\n")
         code = int(first_line.strip())
         obj = json.loads(rest)
-        records.append({
-            "events": events,
-            "code": code,
-            "reason": obj.get("reason", ""),
-            "confidence": float(obj.get("confidence", 0.5)),
-        })
+        records.append(
+            {
+                "events": events,
+                "code": code,
+                "reason": obj.get("reason", ""),
+                "confidence": float(obj.get("confidence", 0.5)),
+            }
+        )
     return records
 
 
@@ -58,24 +63,30 @@ def load_real_test(path: str) -> list[dict]:
     return [json.loads(l) for l in Path(path).read_text().splitlines() if l.strip()]
 
 
-def our_lora_via_modal(run_id: str, test_records: list[dict]) -> dict:
-    """Call Modal predict_with_logprobs function for each record."""
-    predict = modal.Function.lookup("formrecap-lora", "predict_with_logprobs")
+def our_lora_via_modal(
+    run_id: str, test_records: list[dict], base_model: str = "meta-llama/Llama-3.2-3B-Instruct"
+) -> dict:
+    """Call Modal Predictor class for each record. Model stays loaded between calls."""
+    predictor = modal.Cls.from_name("formrecap-lora", "Predictor")(
+        run_id=run_id, base_model=base_model
+    )
     preds: list[int | None] = []
     verbalized_conf: list[float] = []
     logprob_conf: list[float] = []
     first_token_logprobs_by_class: list[dict[int, float]] = []
     for rec in test_records:
-        result = predict.remote(
-            run_id=run_id,
+        result = predictor.predict_with_logprobs.remote(
             messages=[
-                {"role": "system", "content": (
-                    "You analyse form interaction event sequences and classify the likely "
-                    "abandonment reason. Respond with a digit class code 1-6 on the first line, "
-                    "then a JSON object on the second line with class, reason, and confidence fields. "
-                    "Classes: 1=validation_error, 2=distraction, 3=comparison_shopping, "
-                    "4=accidental_exit, 5=bot, 6=committed_leave."
-                )},
+                {
+                    "role": "system",
+                    "content": (
+                        "You analyse form interaction event sequences and classify the likely "
+                        "abandonment reason. Respond with a digit class code 1-6 on the first line, "
+                        "then a JSON object on the second line with class, reason, and confidence fields. "
+                        "Classes: 1=validation_error, 2=distraction, 3=comparison_shopping, "
+                        "4=accidental_exit, 5=bot, 6=committed_leave."
+                    ),
+                },
                 {"role": "user", "content": f"Events: {rec['events']}"},
             ],
         )
@@ -142,7 +153,17 @@ def summarise(name: str, preds: list, labels: list, confidences: list | None = N
 @click.option("--val-file", default="data/synthetic/val-2026-04-18.jsonl")
 @click.option("--test-real", default="data/real/test.jsonl")
 @click.option("--output-dir", default="docs/results")
-def main(run_id: str, train_file: str, val_file: str, test_real: str, output_dir: str):
+@click.option("--base-model", default="meta-llama/Llama-3.2-3B-Instruct")
+@click.option("--skip-baselines", is_flag=True, help="Skip baselines, only run LoRA eval")
+def main(
+    run_id: str,
+    train_file: str,
+    val_file: str,
+    test_real: str,
+    output_dir: str,
+    base_model: str,
+    skip_baselines: bool,
+):
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -155,29 +176,40 @@ def main(run_id: str, train_file: str, val_file: str, test_real: str, output_dir
 
     results: list[dict] = []
 
-    # 1. Majority
-    console.print("[cyan]1/5 Majority class baseline[/cyan]")
-    maj = majority_class_baseline(train, test_real_records)
-    results.append(summarise("Majority class", maj["preds"], labels, maj["confidences"]))
+    if not skip_baselines:
+        # 1. Majority
+        console.print("[cyan]1/5 Majority class baseline[/cyan]")
+        maj = majority_class_baseline(train, test_real_records)
+        results.append(summarise("Majority class", maj["preds"], labels, maj["confidences"]))
 
-    # 2. Zero-shot Llama 3.2 3B
-    console.print("[cyan]2/5 Zero-shot Llama 3.2 3B[/cyan]")
-    zs = zero_shot_llama_via_cf(test_real_records)
-    results.append(summarise("Zero-shot Llama 3.2 3B", zs["preds"], labels, zs["confidences"]))
+        # 2. Zero-shot Llama 3.2 3B
+        console.print("[cyan]2/5 Zero-shot Llama 3.2 3B[/cyan]")
+        zs = zero_shot_llama_via_cf(test_real_records)
+        results.append(summarise("Zero-shot Llama 3.2 3B", zs["preds"], labels, zs["confidences"]))
 
-    # 3. 5-shot Llama
-    console.print("[cyan]3/5 5-shot Llama 3.2 3B[/cyan]")
-    fs = few_shot_llama_via_cf(test_real_records, n_shots=5)
-    results.append(summarise("5-shot Llama 3.2 3B", fs["preds"], labels, fs["confidences"]))
+        # 3. 5-shot Llama
+        console.print("[cyan]3/5 5-shot Llama 3.2 3B[/cyan]")
+        fs = few_shot_llama_via_cf(test_real_records, n_shots=5)
+        results.append(summarise("5-shot Llama 3.2 3B", fs["preds"], labels, fs["confidences"]))
 
-    # 4. Claude Haiku
-    console.print("[cyan]4/5 Claude Haiku 4.5[/cyan]")
-    ch = claude_haiku_baseline(test_real_records)
-    results.append(summarise("Claude Haiku 4.5", ch["preds"], labels, ch["confidences"]))
+        # 4. Claude Haiku
+        console.print("[cyan]4/5 Claude Haiku 4.5[/cyan]")
+        ch = claude_haiku_baseline(test_real_records)
+        results.append(summarise("Claude Haiku 4.5", ch["preds"], labels, ch["confidences"]))
 
-    # 5. Our LoRA on Modal
-    console.print("[cyan]5/5 Our LoRA via Modal (with logprobs)[/cyan]")
-    ours = our_lora_via_modal(run_id, test_real_records)
+    # Zero-shot baseline for this base model (via Modal, no adapter)
+    model_short = base_model.split("/")[-1]
+    console.print(f"[cyan]Zero-shot {model_short} via Modal[/cyan]")
+    zs_modal = our_lora_via_modal("none", test_real_records, base_model=base_model)
+    results.append(
+        summarise(
+            f"Zero-shot {model_short}", zs_modal["preds"], labels, zs_modal["logprob_confidences"]
+        )
+    )
+
+    # Our LoRA on Modal
+    console.print(f"[cyan]LoRA {model_short} via Modal (with logprobs)[/cyan]")
+    ours = our_lora_via_modal(run_id, test_real_records, base_model=base_model)
 
     # Verbalized
     r_verbal = summarise(
@@ -204,6 +236,7 @@ def main(run_id: str, train_file: str, val_file: str, test_real: str, output_dir
             }
             for v in val
         ],
+        base_model=base_model,
     )
     val_logits = np.array([[per[c] for c in range(1, 7)] for per in val_ours["per_class_logprobs"]])
     val_labels_idx = np.array([v["code"] - 1 for v in val])  # 0-indexed
