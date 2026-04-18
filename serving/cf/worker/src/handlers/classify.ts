@@ -11,8 +11,6 @@ const SYSTEM_PROMPT =
   "Classes: 1=validation_error, 2=distraction, 3=comparison_shopping, " +
   "4=accidental_exit, 5=bot, 6=committed_leave.";
 
-const VLLM_GEMMA_URL = "https://jasonm4130--formrecap-lora-vllm-serve-gemma-2b.modal.run";
-
 type ModelVariant = "zero-shot" | "cf-lora" | "full-lora";
 
 function parseModelOutput(text: string): Record<string, unknown> {
@@ -33,11 +31,11 @@ async function callCfWorkersAi(env: any, events: string, loraId: string): Promis
   return aiResp.response as string;
 }
 
-async function callVllm(modelName: string, events: string, modalToken: string): Promise<string> {
+async function callVllm(baseUrl: string, modelName: string, events: string, modalToken: string): Promise<string> {
   const messages = [
     { role: "user", content: `${SYSTEM_PROMPT}\n\nEvents: ${events}` },
   ];
-  const resp = await fetch(`${VLLM_GEMMA_URL}/v1/chat/completions`, {
+  const resp = await fetch(`${baseUrl}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${modalToken}` },
     body: JSON.stringify({
@@ -59,6 +57,7 @@ export interface Env {
   TURNSTILE_SECRET_KEY: string;
   LORA_FINETUNE_ID: string;
   MODAL_API_TOKEN: string;
+  VLLM_BASE_URL: string;
 }
 
 export async function handleClassify(env: Env, request: Request): Promise<Response> {
@@ -96,11 +95,11 @@ export async function handleClassify(env: Env, request: Request): Promise<Respon
   switch (variant) {
     case "zero-shot":
       // Gemma 2B base model via vLLM (no adapter)
-      text = await callVllm("google/gemma-2b-it", body.events, env.MODAL_API_TOKEN);
+      text = await callVllm(env.VLLM_BASE_URL, "google/gemma-2b-it", body.events, env.MODAL_API_TOKEN);
       break;
     case "full-lora":
       // Gemma 2B full LoRA (r=16, 7 modules) via vLLM
-      text = await callVllm("gemma-2b-nodora", body.events, env.MODAL_API_TOKEN);
+      text = await callVllm(env.VLLM_BASE_URL, "gemma-2b-nodora", body.events, env.MODAL_API_TOKEN);
       break;
     case "cf-lora":
     default:
