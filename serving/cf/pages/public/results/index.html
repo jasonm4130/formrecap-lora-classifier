@@ -25,9 +25,19 @@
   </nav>
 
   <main>
+    <!-- Hero: F1 Comparison Chart -->
     <div class="chart-section">
-      <h2>Model Comparison</h2>
-      <p class="chart-desc">Fine-tuned adapters vs zero-shot baselines on 52 hand-labeled real test examples.</p>
+      <h2>The Fine-Tuning Delta</h2>
+      <p class="chart-desc">Every zero-shot model scored below 0.11 on Macro-F1. Fine-tuning on 884 synthetic examples transformed performance — and the smallest model won.</p>
+      <div class="chart-container">
+        <canvas id="f1ComparisonChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Model Comparison Table -->
+    <div class="chart-section">
+      <h2>Full Results</h2>
+      <p class="chart-desc">All systems evaluated on the same 52 hand-labeled real test examples. ECE measured after temperature scaling on logprob confidence.</p>
       <table class="data-table">
         <thead>
           <tr>
@@ -75,39 +85,44 @@
       </table>
     </div>
 
+    <!-- Per-Class F1: Multi-model -->
     <div class="chart-section">
-      <h2>Per-Class F1</h2>
-      <p class="chart-desc">Gemma 2B Full LoRA performance by class. Strongest on distraction and accidental_exit, weakest on committed_leave.</p>
+      <h2>Per-Class F1 Across Models</h2>
+      <p class="chart-desc">Where each model excels and struggles. All three top adapters nail bot detection (1.0 or close), but committed_leave is universally the hardest class — its event traces overlap with comparison_shopping (both involve browsing without filling fields).</p>
       <div class="chart-container">
         <canvas id="perClassChart"></canvas>
       </div>
     </div>
 
+    <!-- ECE Comparison -->
     <div class="chart-section">
       <h2>Calibration: ECE Comparison</h2>
-      <p class="chart-desc">Expected Calibration Error across confidence sources. Temperature scaling on logprobs drops ECE from 0.145 (verbalized) to 0.056 (calibrated).</p>
+      <p class="chart-desc">Verbalized confidence ("the model says 0.85") is consistently overconfident. Extracting logprobs directly improves calibration. Temperature scaling pushes ECE below 0.06 for the Gemma 2B adapter — the model's probability distribution is more trustworthy than its words.</p>
       <div class="chart-container">
         <canvas id="eceChart"></canvas>
       </div>
     </div>
 
+    <!-- Reliability Diagram -->
     <div class="chart-section">
       <h2>Reliability Diagram</h2>
-      <p class="chart-desc">Confidence vs accuracy per bucket. Perfect calibration follows the diagonal. After temperature scaling, the curve tightens toward the diagonal.</p>
+      <p class="chart-desc">The diagonal is perfect calibration. Before calibration, the model clusters predictions in the 0.8-1.0 range regardless of actual accuracy. After temperature scaling, predictions spread across the confidence range and track the diagonal more closely.</p>
       <div class="chart-container">
         <canvas id="reliabilityChart"></canvas>
       </div>
     </div>
 
+    <!-- Confusion Matrix -->
     <div class="chart-section">
       <h2>Confusion Matrix</h2>
-      <p class="chart-desc">Gemma 2B Full LoRA predictions vs true labels. Rows are true classes, columns are predicted classes.</p>
+      <p class="chart-desc">Gemma 2B Full LoRA on 52 real test examples. The main failure mode: comparison_shopping misclassified as committed_leave (3 cases). Both classes involve browsing without form engagement — the distinguishing signal is subtle.</p>
       <div class="chart-container" id="confusionContainer"></div>
     </div>
 
+    <!-- Training Loss -->
     <div class="chart-section">
       <h2>Training Loss Curves</h2>
-      <p class="chart-desc">Validation loss per epoch across all trained models. All models converge by epoch 3.</p>
+      <p class="chart-desc">All models converge by epoch 3 with no overfitting. The Gemma 2B CF adapter (r=8, constrained for Cloudflare) starts with much higher loss and never catches up — rank matters more than model size for this task.</p>
       <div class="chart-container">
         <canvas id="lossChart"></canvas>
       </div>

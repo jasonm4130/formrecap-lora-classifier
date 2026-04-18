@@ -9,16 +9,28 @@ const GREEN = '#4ade80';
 const BLUE = '#60a5fa';
 const RED = '#f87171';
 
-/* === Per-Class F1 horizontal bar chart === */
-new Chart(document.getElementById('perClassChart'), {
+/* === F1 Comparison hero chart === */
+new Chart(document.getElementById('f1ComparisonChart'), {
   type: 'bar',
   data: {
-    labels: ['validation_error', 'distraction', 'comparison_shopping', 'accidental_exit', 'bot', 'committed_leave'],
+    labels: [
+      'Gemma 2B Full LoRA',
+      'Llama 3.2 3B LoRA',
+      'Mistral 7B CF LoRA',
+      'Gemma 2B CF LoRA',
+      'Llama 1B LoRA',
+      'Zero-shot Llama 3B',
+      'Zero-shot Mistral 7B',
+      'Zero-shot Gemma 2B'
+    ],
     datasets: [{
-      data: [0.957, 1.0, 0.9, 1.0, 0.889, 0.75],
-      backgroundColor: AMBER,
+      data: [0.916, 0.856, 0.760, 0.249, 0.196, 0.108, 0.095, 0.063],
+      backgroundColor: [
+        AMBER, AMBER, AMBER, AMBER, AMBER,
+        '#555', '#555', '#555'
+      ],
       borderRadius: 4,
-      barThickness: 28
+      barThickness: 24
     }]
   },
   options: {
@@ -33,20 +45,64 @@ new Chart(document.getElementById('perClassChart'), {
         titleColor: '#e2e4ea',
         bodyColor: '#e2e4ea',
         callbacks: {
-          label: (ctx) => `F1: ${ctx.raw.toFixed(3)}`
+          label: (ctx) => `Macro-F1: ${ctx.raw.toFixed(3)}`
         }
       }
     },
     scales: {
-      x: {
-        min: 0,
-        max: 1.0,
-        grid: { color: '#2a2d3a' },
-        ticks: { callback: (v) => v.toFixed(1) }
+      x: { min: 0, max: 1.0, grid: { color: '#2a2d3a' }, ticks: { callback: (v) => v.toFixed(1) } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+/* === Per-Class F1 multi-model bar chart === */
+new Chart(document.getElementById('perClassChart'), {
+  type: 'bar',
+  data: {
+    labels: ['validation_error', 'distraction', 'comparison_shopping', 'accidental_exit', 'bot', 'committed_leave'],
+    datasets: [
+      {
+        label: 'Gemma 2B Full',
+        data: [0.957, 1.0, 0.9, 1.0, 0.889, 0.75],
+        backgroundColor: AMBER,
+        borderRadius: 4
       },
-      y: {
-        grid: { display: false }
+      {
+        label: 'Llama 3B',
+        data: [1.0, 0.947, 0.588, 1.0, 1.0, 0.6],
+        backgroundColor: GREEN,
+        borderRadius: 4
+      },
+      {
+        label: 'Mistral 7B CF',
+        data: [0.923, 0.75, 0.636, 0.875, 1.0, 0.375],
+        backgroundColor: BLUE,
+        borderRadius: 4
       }
+    ]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: {
+      legend: {
+        labels: { usePointStyle: true, pointStyle: 'rectRounded', padding: 16 }
+      },
+      tooltip: {
+        backgroundColor: '#1c1f2a',
+        borderColor: '#2a2d3a',
+        borderWidth: 1,
+        titleColor: '#e2e4ea',
+        bodyColor: '#e2e4ea',
+        callbacks: {
+          label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toFixed(3)}`
+        }
+      }
+    },
+    scales: {
+      x: { min: 0, max: 1.0, grid: { color: '#2a2d3a' }, ticks: { callback: (v) => v.toFixed(1) } },
+      y: { grid: { display: false } }
     }
   }
 });
