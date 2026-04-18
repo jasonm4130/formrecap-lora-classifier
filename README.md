@@ -1,119 +1,120 @@
-# formrecap-lora-classifier
+# FormRecap LoRA Classifier
 
-Fine-tuned Llama 3.2 3B classifier for form abandonment detection.
+Fine-tuned LoRA classifiers for form abandonment detection. Trained on Modal, served on both Modal (logprob-calibrated confidence) and Cloudflare Workers AI (edge).
+
+**[Live demo](https://formrecap-classify.jasonm4130.workers.dev)** · **[Blog post](docs/blog-draft.md)**
 
 ## Why
 
-FormRecap tracks form interaction events: focus, blur, input, scroll, exit. When a user abandons a form, those events tell a story. The question is which story.
+FormRecap tracks form interaction events: focus, blur, input, scroll, exit. When a user abandons a form, those events tell a story. A single "abandoned" label loses the signal. This classifier turns event traces into actionable abandonment reasons so recovery flows can be targeted.
 
-I built this because off-the-shelf LLMs handle this classification task inconsistently, and verbalized confidence scores from large models are poorly calibrated on structured behavioural data. A small fine-tuned model running at the edge is faster, cheaper, and more consistent.
+Six classes:
 
-The model classifies abandonment events into six reasons:
-
-| Class | Description |
-|---|---|
-| `validation_error` | User hit a field they couldn't complete |
-| `distraction` | Rapid unfocus, no scroll, short session |
-| `comparison_shopping` | Multiple tab switches, long dwell before exit |
-| `accidental_exit` | Immediate return signal or quick re-engagement |
-| `bot` | Non-human interaction pattern |
-| `committed_leave` | Deliberate exit after meaningful engagement |
-
-Different abandonment reasons require different recovery strategies. A single "abandoned" label loses that signal entirely.
-
-## How It Works
-
-### Training pipeline
-
-1. Generate 1100 synthetic training examples with Claude Sonnet (per-call form context randomisation, temperature=1.0, in-run dedup rejection to avoid the duplicate collapse problem)
-2. Fine-tune with QLoRA on Modal (NF4 quantisation, LoRA r=16, DoRA, Unsloth)
-3. Evaluate against 52 hand-crafted real test examples
-
-One training run: ~30 minutes, ~$0.40 on a single L4 GPU.
-
-### Why LoRA over full fine-tune
-
-Llama 3.2 3B has the strongest fine-tuning delta of the sub-4B models. LoRA gets most of that delta at a fraction of the compute. Full fine-tune would cost 20x more and produce a model that can't be served via Cloudflare's BYO-LoRA path.
-
-### Why dual deployment
-
-Cloudflare Workers AI supports BYO-LoRA adapters but does not expose logprobs. Modal does.
-
-Logprobs matter here. Verbalized confidence from an LLM ("confidence: 0.85") is poorly calibrated. The correct approach is to extract the probability of the class digit token directly from the model's output distribution, then apply temperature scaling to minimise Expected Calibration Error (ECE).
-
-So the deployment split is:
-
-- **Cloudflare Workers AI** → edge inference, sub-200ms p50 from Australia, verbalized confidence only
-- **Modal** → calibrated inference via logprobs + temperature scaling, used for high-stakes recovery paths
-
-One trained adapter. Two deployment targets. The CF constraint is what made the dual-deploy architecture necessary, not a design preference.
-
-### Calibration approach (Modal path)
-
-Each of the six class labels maps to a single digit token (1-6) in Llama's vocabulary. The logprob of that token is a cleaner confidence signal than anything the model says in text. Temperature scaling fits one scalar `T` on the validation set to minimise ECE. The calibrated confidence is what gets sent to the FormRecap recovery pipeline.
+| Code | Class | Description |
+|---|---|---|
+| 1 | `validation_error` | User hit a field error they couldn't resolve |
+| 2 | `distraction` | User task-switched away |
+| 3 | `comparison_shopping` | Browsing, not committing |
+| 4 | `accidental_exit` | Closed tab / back button by mistake |
+| 5 | `bot` | Automated non-human interaction |
+| 6 | `committed_leave` | Intentionally chose not to complete |
 
 ## Results
 
-Full baseline comparison (majority class, zero-shot, 5-shot, Claude Haiku, this model) is documented in [`docs/blog-draft.md`](docs/blog-draft.md). Metrics include macro-F1, per-class F1, and ECE before and after calibration. Final numbers pending training run completion.
+Evaluated on 52 hand-labeled real test examples.
+
+| System | Macro-F1 | 95% CI | ECE |
+|---|---|---|---|
+| Zero-shot Gemma 2B | 0.063 | [0.040, 0.089] | 0.755 |
+| Zero-shot Mistral 7B | 0.095 | [0.063, 0.128] | 0.645 |
+| **Gemma 2B Full LoRA** | **0.916** | [0.813, 0.981] | 0.056 |
+| Mistral 7B CF LoRA | 0.760 | [0.648, 0.852] | 0.071 |
+
+Calibration headline: temperature scaling on logprobs drops ECE from 0.145 (verbalized) to 0.056 (calibrated) on the Gemma 2B adapter.
+
+### Per-class F1 (Gemma 2B Full LoRA)
+
+| Class | F1 |
+|---|---|
+| validation_error | 0.957 |
+| distraction | 1.000 |
+| comparison_shopping | 0.900 |
+| accidental_exit | 1.000 |
+| bot | 0.889 |
+| committed_leave | 0.750 |
+
+## Architecture
+
+Train once, deploy twice. The same LoRA adapter runs on both Modal (for calibration-critical paths with full logprobs) and Cloudflare Workers AI (for edge latency with verbalized confidence only).
+
+CF Workers AI BYO-LoRA does not expose logprobs. This constraint drives the dual deployment:
+
+- **Cloudflare Workers AI** — Mistral 7B + LoRA at the edge, sub-200ms p50 from Australia
+- **Modal vLLM** — Gemma 2B + LoRA with logprob extraction + temperature scaling
+
+## Trained Adapters (HuggingFace Hub)
+
+| Adapter | Base Model | F1 | Link |
+|---|---|---|---|
+| Gemma 2B Full LoRA | google/gemma-2b-it | 0.916 | [HF](https://huggingface.co/jasonm4130/formrecap-gemma-2b-lora) |
+| Gemma 2B CF LoRA | google/gemma-2b-it | — | [HF](https://huggingface.co/jasonm4130/formrecap-gemma-2b-cf-lora) |
+| Mistral 7B CF LoRA | mistralai/Mistral-7B-Instruct-v0.2 | 0.760 | [HF](https://huggingface.co/jasonm4130/formrecap-mistral-7b-cf-lora) |
+| Llama 3.2 3B LoRA | meta-llama/Llama-3.2-3B-Instruct | — | [HF](https://huggingface.co/jasonm4130/formrecap-llama-3.2-3b-lora) |
 
 ## Tech Stack
 
 | Component | Technology |
 |---|---|
-| Model | Llama 3.2 3B |
-| Fine-tuning | Hugging Face PEFT/TRL, Unsloth, QLoRA NF4 |
-| Training infra | Modal (L4 GPU) |
+| Training | HuggingFace PEFT + TRL, QLoRA NF4, Modal L4 GPU |
 | Edge serving | Cloudflare Workers AI (BYO-LoRA) |
-| Calibrated serving | Modal (logprobs + temperature scaling) |
+| Calibrated serving | Modal vLLM (logprobs + temperature scaling) |
 | Data generation | Claude Sonnet |
+| Protection | Turnstile, rate limiting, HMAC tokens, daily budget, kill-switch |
 | Package manager | uv |
 
 ## Quickstart
 
 ```bash
-# Install dependencies
 uv sync --extra dev
-
-# Configure environment
-cp .env.example .env  # fill in Modal token, CF API key, Anthropic key
+cp .env.example .env  # fill in keys
 
 # Generate synthetic training data
-python -m formrecap_lora.data.generate --count 1100
+uv run python -m formrecap_lora.data.generate --count 1100
 
-# Train (runs on Modal, ~30 min, ~$0.40)
-modal run training/modal_app.py::train --run-id baseline
+# Dedupe + split
+uv run python -m formrecap_lora.data.assemble --skip-semantic-dedupe
 
-# Evaluate against real test set
-python -m formrecap_lora.eval.runner --run-id baseline
-```
+# Upload to Modal volume + train
+uv run python scripts/upload_data.py
+uv run modal run training/modal_app.py::run_train \
+    --run-id my-run \
+    --train-file data/train.jsonl \
+    --val-file data/val.jsonl \
+    --base-model google/gemma-2b-it
 
-With 1Password CLI:
+# Download adapter from HF Hub (or use your own)
+uv run python scripts/download_adapter.py --model gemma-2b
 
-```bash
-op run --env-file .env.op -- modal run training/modal_app.py::train --run-id baseline
+# Evaluate
+uv run python -m formrecap_lora.eval.runner --run-id my-run
 ```
 
 ## Project Structure
 
 ```
 src/formrecap_lora/
-  data/       # synthetic data generation
-  training/   # Modal training app, LoRA config
-  eval/       # evaluation runner, calibration
-  serving/    # Modal + CF inference endpoints
+  data/         # preprocessor, generator, dedupe, splits
+  eval/         # metrics, calibration, baselines, runner, judge
+  serving/      # inference endpoints
 training/
-  modal_app.py
-docs/
-  blog-draft.md   # full write-up with architecture detail and results
+  config.py     # hyperparameters, shared constants
+  modal_app.py  # training + HF predictor (Modal)
+  vllm_serve.py # vLLM inference server (Modal)
+serving/cf/
+  worker/       # Cloudflare Worker (TypeScript)
+  pages/        # Demo site (static HTML)
+scripts/        # data upload, adapter download, HF push
 ```
-
-## Protection Stack
-
-The serving endpoints include Turnstile verification, rate limiting, HMAC request tokens, a daily inference budget cap, and a KV kill switch. Weekend project, not unprotected endpoint.
-
-## Status
-
-Active development. Training complete. Calibration and CF deployment in progress. Live demo at [lab.formrecap.com](https://lab.formrecap.com) when serving is stable.
 
 ## License
 
