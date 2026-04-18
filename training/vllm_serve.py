@@ -87,10 +87,12 @@ def serve_llama_3b():
 def serve_gemma_2b():
     import subprocess
 
+    volume.reload()
     cmd = _build_vllm_cmd(
         "google/gemma-2b-it",
         lora_adapters={
             "gemma-2b-cf": f"{VOLUME_PATH}/runs/gemma-2b-cf/adapter",
+            "gemma-2b-nodora": f"{VOLUME_PATH}/runs/gemma-2b-nodora/adapter",
         },
     )
     subprocess.Popen(" ".join(cmd), shell=True)
