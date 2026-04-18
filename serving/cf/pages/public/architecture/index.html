@@ -52,6 +52,15 @@
     </div>
 
     <div class="arch-section">
+      <h2>Method</h2>
+      <p>Training data is generated synthetically using Claude Sonnet. Each API call produces one labeled example: a form interaction event trace paired with a class label (1-6), a reasoning explanation, and a confidence score. 1100 examples generated, 884 survived exact deduplication. The training set is intentionally imbalanced to match real-world traffic distributions.</p>
+      <p>Fine-tuning uses QLoRA — the base model is quantised to 4-bit NF4 precision, and a low-rank adapter (LoRA) is trained on top. Configuration: rank r=16, alpha=32, DoRA enabled, all linear layers targeted. This keeps the adapter under 100MB while capturing the full classification capability.</p>
+      <p>Training runs on a single Modal L4 GPU (24GB VRAM) for approximately 30 minutes per run at a cost of ~$0.40. Three epochs with cosine learning rate schedule, effective batch size of 16, and checkpoint selection by best validation loss.</p>
+      <p>The model outputs a leading digit (1-6) on the first line, followed by a JSON object with the class name, reasoning, and confidence. The leading digit is a single token in the Llama/Gemma vocabulary, which enables clean logprob extraction for calibration.</p>
+      <p>Evaluation uses 52 hand-labeled real test examples — never seen during training. These were crafted independently from the synthetic training data to test generalisation from synthetic to real event traces.</p>
+    </div>
+
+    <div class="arch-section">
       <h2>Calibration Pipeline</h2>
       <p>The model's first output token is always a digit 1-6, each mapping to one of six abandonment classes. In the Llama/Gemma tokenizer, each digit is a single token — so its logprob gives a clean per-class probability signal.</p>
       <p>Verbalized confidence (the number the model writes in its JSON output) has an ECE of 0.145. Extracting the token logprob directly drops ECE to 0.103. Fitting a single temperature scalar T on the validation set brings ECE down to 0.056.</p>
@@ -62,19 +71,6 @@
       <h2>Why Not Just Use CF Workers AI?</h2>
       <p>Cloudflare's BYO-LoRA endpoint does not expose token logprobs. The API returns only the generated text and optionally raw bytes. Without logprobs, the only confidence signal is whatever the model writes in its output — which is poorly calibrated.</p>
       <p>For latency-sensitive, cost-sensitive paths where approximate confidence is acceptable, CF Workers AI is the right choice. For paths where confidence drives downstream decisions (like choosing a recovery flow), the Modal path with calibrated logprobs is necessary.</p>
-    </div>
-
-    <div class="arch-section">
-      <h2>Protection Stack</h2>
-      <p>The demo endpoint has six layers of abuse mitigation. CF Workers AI on paid tier has no native hard spend cap, so the Worker implements its own.</p>
-      <ol class="protection-list">
-        <li><span class="layer-num">1</span> Cloudflare Turnstile — bot detection challenge on page load</li>
-        <li><span class="layer-num">2</span> Rate limiting — 10 req/min/IP via CF ruleset</li>
-        <li><span class="layer-num">3</span> HMAC demo tokens — 10-minute TTL, signed on Turnstile verification</li>
-        <li><span class="layer-num">4</span> Input validation — 2KB max, regex-validated event trace format</li>
-        <li><span class="layer-num">5</span> Daily neuron budget — KV-tracked counter, 503 when exhausted</li>
-        <li><span class="layer-num">6</span> Kill switch — KV flag, instant disable without redeployment</li>
-      </ol>
     </div>
   </main>
 
