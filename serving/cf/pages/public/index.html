@@ -3,107 +3,146 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FormRecap LoRA Classifier — Live Demo</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css" />
+  <title>FormRecap LoRA Classifier</title>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font: 15px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0e0f11; color: #e2e4ea;
+      max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem;
+    }
+    code, pre, textarea, .mono { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+    h1 { font-size: 1.6rem; margin-bottom: 0.5rem; font-weight: 600; }
+    h1 span { color: #e8a838; }
+    .subtitle { color: #8b8fa3; font-size: 14px; margin-bottom: 1.5rem; line-height: 1.7; }
+    .stats { display: flex; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap; }
+    .stat-val { font-family: 'SF Mono', monospace; font-size: 1.3rem; font-weight: 600; }
+    .stat-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #8b8fa3; }
+    label { display: block; font-size: 13px; color: #8b8fa3; margin-bottom: 0.5rem; }
+    .examples { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; margin-bottom: 1rem; }
+    .ex-btn {
+      display: flex; flex-direction: column; gap: 2px; padding: 10px 12px;
+      background: #161820; border: 1px solid #2a2d3a; border-radius: 6px;
+      cursor: pointer; text-align: left; color: inherit; font-family: inherit; font-size: inherit;
+      transition: border-color 0.15s;
+    }
+    .ex-btn:hover { border-color: #e8a838; }
+    .ex-btn.active { border-color: #e8a838; background: #1c1f2a; }
+    .ex-cls { font-family: 'SF Mono', monospace; font-size: 12px; font-weight: 600; color: #e8a838; }
+    .ex-desc { font-size: 12px; color: #8b8fa3; }
+    textarea {
+      width: 100%; font-size: 13px; padding: 12px; background: #161820;
+      border: 1px solid #2a2d3a; border-radius: 6px; color: #e2e4ea;
+      resize: vertical; min-height: 80px;
+    }
+    textarea:focus { outline: none; border-color: #e8a838; }
+    textarea::placeholder { color: #4a4d5a; }
+    .cf-turnstile { margin: 1rem 0; }
+    .btn {
+      width: 100%; padding: 12px; font-size: 15px; font-weight: 600;
+      color: #0e0f11; background: #e8a838; border: none; border-radius: 6px;
+      cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { opacity: 0.9; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid transparent; border-top-color: #0e0f11; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .result { margin-top: 1.5rem; padding: 20px; background: #161820; border: 1px solid #2a2d3a; border-radius: 8px; animation: fadeIn 0.3s; }
+    .result-head { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .result-class { font-family: 'SF Mono', monospace; font-size: 1.1rem; font-weight: 600; color: #e8a838; }
+    .result-conf { font-family: 'SF Mono', monospace; font-size: 13px; color: #8b8fa3; }
+    .result-reason { font-size: 14px; color: #ccc; line-height: 1.6; padding-bottom: 12px; border-bottom: 1px solid #2a2d3a; margin-bottom: 12px; }
+    details summary { font-family: 'SF Mono', monospace; font-size: 12px; color: #8b8fa3; cursor: pointer; }
+    details pre { margin-top: 8px; font-size: 12px; color: #8b8fa3; background: #0e0f11; padding: 12px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .ref { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid #2a2d3a; }
+    .ref-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #8b8fa3; margin-bottom: 0.75rem; font-family: 'SF Mono', monospace; }
+    .ref-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; }
+    .ref-item { padding: 10px 12px; background: #161820; border-radius: 6px; }
+    .ref-code { font-family: 'SF Mono', monospace; font-size: 11px; color: #8b8fa3; }
+    .ref-name { font-family: 'SF Mono', monospace; font-size: 13px; }
+    .ref-desc { font-size: 12px; color: #8b8fa3; }
+    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #2a2d3a; font-size: 13px; color: #8b8fa3; text-align: center; }
+    footer a { color: #e2e4ea; text-decoration: none; }
+    footer a:hover { color: #e8a838; }
+  </style>
 </head>
 <body>
-  <div class="grain"></div>
-  <header>
-    <div class="badge">LIVE DEMO</div>
-    <h1>FormRecap <span class="accent">LoRA</span> Classifier</h1>
-    <p class="subtitle">A fine-tuned Gemma 2B model classifies form abandonment reasons from event traces. Trained with LoRA on 884 synthetic examples, deployed to Cloudflare Workers AI at the edge.</p>
-    <div class="stats-row">
-      <div class="stat"><span class="stat-value">0.916</span><span class="stat-label">Macro-F1</span></div>
-      <div class="stat"><span class="stat-value">2B</span><span class="stat-label">Parameters</span></div>
-      <div class="stat"><span class="stat-value">6</span><span class="stat-label">Classes</span></div>
-      <div class="stat"><span class="stat-value">884</span><span class="stat-label">Training examples</span></div>
-    </div>
-  </header>
+  <h1>FormRecap <span>LoRA</span> Classifier</h1>
+  <p class="subtitle">A fine-tuned Gemma 2B classifies form abandonment reasons from event traces. Deployed to Cloudflare Workers AI.</p>
 
-  <main>
-    <section class="input-section">
-      <div class="section-label">01 — Input</div>
-      <label for="events">Paste an event trace or try an example</label>
-      <div class="examples">
-        <button class="example-btn" data-class="1" data-trace="focus:email, input:email(x12), blur:email(invalid_format), focus:email, input:email(x8), blur:email(invalid_format), scroll:page(3200ms), focus:email, input:email(x15), blur:email(invalid_format), exit">
-          <span class="example-class">validation_error</span>
-          <span class="example-desc">Repeated email validation failures</span>
-        </button>
-        <button class="example-btn" data-class="2" data-trace="focus:first_name, input:first_name(x7), blur:first_name, focus:last_name, input:last_name(x9), blur:last_name, focus:email, input:email(x14), blur:email, scroll:page(185000ms), exit">
-          <span class="example-class">distraction</span>
-          <span class="example-desc">Long idle gap after steady input</span>
-        </button>
-        <button class="example-btn" data-class="3" data-trace="focus:plan_type, blur:plan_type, scroll:page(4200ms), focus:pricing, blur:pricing, scroll:page(6800ms), focus:features, blur:features, scroll:page(3100ms), exit">
-          <span class="example-class">comparison_shopping</span>
-          <span class="example-desc">Browsing plans without committing</span>
-        </button>
-        <button class="example-btn" data-class="4" data-trace="focus:card_number, input:card_number(x16), blur:card_number, focus:expiry, input:expiry(x5), blur:expiry, focus:cvv, input:cvv(x3), exit">
-          <span class="example-class">accidental_exit</span>
-          <span class="example-desc">Abrupt exit mid-checkout</span>
-        </button>
-        <button class="example-btn" data-class="5" data-trace="input:username(x22), input:email(x30), input:password(x18), submit">
-          <span class="example-class">bot</span>
-          <span class="example-desc">No focus events, direct injection</span>
-        </button>
-        <button class="example-btn" data-class="6" data-trace="focus:plan_type, blur:plan_type, scroll:page(2800ms), focus:terms, blur:terms, scroll:page(1500ms), exit">
-          <span class="example-class">committed_leave</span>
-          <span class="example-desc">Evaluated and decided no</span>
-        </button>
-      </div>
-      <textarea id="events" rows="4" placeholder="focus:field, input:field(xN), blur:field(reason), scroll:page(Nms), exit" spellcheck="false"></textarea>
-    </section>
+  <div class="stats">
+    <div><div class="stat-val mono">0.916</div><div class="stat-lbl">Macro-F1</div></div>
+    <div><div class="stat-val mono">2B</div><div class="stat-lbl">Parameters</div></div>
+    <div><div class="stat-val mono">6</div><div class="stat-lbl">Classes</div></div>
+    <div><div class="stat-val mono">884</div><div class="stat-lbl">Training examples</div></div>
+  </div>
 
-    <section class="auth-section">
-      <div class="cf-turnstile" data-sitekey="0x4AAAAAAC-9jQBlgwlLvaEP" data-callback="onTurnstileVerified" data-theme="dark"></div>
-    </section>
-
-    <button id="classify" disabled>
-      <span class="btn-text">Classify trace</span>
-      <span class="btn-loading" hidden>
-        <span class="spinner"></span> Running inference…
-      </span>
+  <label>Try an example or paste your own event trace</label>
+  <div class="examples">
+    <button class="ex-btn" data-trace="focus:email, input:email(x12), blur:email(invalid_format), focus:email, input:email(x8), blur:email(invalid_format), scroll:page(3200ms), focus:email, input:email(x15), blur:email(invalid_format), exit">
+      <span class="ex-cls">validation_error</span>
+      <span class="ex-desc">Repeated email validation failures</span>
     </button>
+    <button class="ex-btn" data-trace="focus:first_name, input:first_name(x7), blur:first_name, focus:last_name, input:last_name(x9), blur:last_name, focus:email, input:email(x14), blur:email, scroll:page(185000ms), exit">
+      <span class="ex-cls">distraction</span>
+      <span class="ex-desc">Long idle gap after steady input</span>
+    </button>
+    <button class="ex-btn" data-trace="focus:plan_type, blur:plan_type, scroll:page(4200ms), focus:pricing, blur:pricing, scroll:page(6800ms), focus:features, blur:features, scroll:page(3100ms), exit">
+      <span class="ex-cls">comparison_shopping</span>
+      <span class="ex-desc">Browsing plans without committing</span>
+    </button>
+    <button class="ex-btn" data-trace="focus:card_number, input:card_number(x16), blur:card_number, focus:expiry, input:expiry(x5), blur:expiry, focus:cvv, input:cvv(x3), exit">
+      <span class="ex-cls">accidental_exit</span>
+      <span class="ex-desc">Abrupt exit mid-checkout</span>
+    </button>
+    <button class="ex-btn" data-trace="input:username(x22), input:email(x30), input:password(x18), submit">
+      <span class="ex-cls">bot</span>
+      <span class="ex-desc">No focus events, direct injection</span>
+    </button>
+    <button class="ex-btn" data-trace="focus:plan_type, blur:plan_type, scroll:page(2800ms), focus:terms, blur:terms, scroll:page(1500ms), exit">
+      <span class="ex-cls">committed_leave</span>
+      <span class="ex-desc">Evaluated and decided no</span>
+    </button>
+  </div>
 
-    <section class="result-section" id="result-section" hidden>
-      <div class="section-label">02 — Result</div>
-      <div class="result-card">
-        <div class="result-header">
-          <div class="result-class" id="result-class"></div>
-          <div class="result-confidence" id="result-confidence"></div>
-        </div>
-        <div class="result-reason" id="result-reason"></div>
-        <details class="result-raw">
-          <summary>Raw JSON response</summary>
-          <pre id="result-json"></pre>
-        </details>
-      </div>
-    </section>
+  <textarea id="events" rows="3" placeholder="focus:field, input:field(xN), blur:field(reason), scroll:page(Nms), exit" spellcheck="false"></textarea>
 
-    <section class="taxonomy">
-      <div class="section-label">Reference — 6 Class Taxonomy</div>
-      <div class="taxonomy-grid">
-        <div class="tax-item"><span class="tax-code">1</span><span class="tax-name">validation_error</span><span class="tax-desc">User hit a field error they couldn't resolve</span></div>
-        <div class="tax-item"><span class="tax-code">2</span><span class="tax-name">distraction</span><span class="tax-desc">User task-switched away (long idle gap)</span></div>
-        <div class="tax-item"><span class="tax-code">3</span><span class="tax-name">comparison_shopping</span><span class="tax-desc">Browsing/evaluating, not committing</span></div>
-        <div class="tax-item"><span class="tax-code">4</span><span class="tax-name">accidental_exit</span><span class="tax-desc">Closed tab or navigated away by mistake</span></div>
-        <div class="tax-item"><span class="tax-code">5</span><span class="tax-name">bot</span><span class="tax-desc">Automated non-human interaction</span></div>
-        <div class="tax-item"><span class="tax-code">6</span><span class="tax-name">committed_leave</span><span class="tax-desc">Intentionally chose not to complete</span></div>
-      </div>
-    </section>
-  </main>
+  <div class="cf-turnstile" data-sitekey="0x4AAAAAAC-9jQBlgwlLvaEP" data-callback="onTurnstileVerified" data-theme="dark"></div>
+
+  <button class="btn" id="classify" disabled>
+    <span id="btn-text">Classify trace</span>
+    <span id="btn-loading" hidden><span class="spinner"></span>Running inference...</span>
+  </button>
+
+  <div class="result" id="result" hidden>
+    <div class="result-head">
+      <div class="result-class" id="r-class"></div>
+      <div class="result-conf" id="r-conf"></div>
+    </div>
+    <div class="result-reason" id="r-reason"></div>
+    <details>
+      <summary>Raw JSON</summary>
+      <pre id="r-json"></pre>
+    </details>
+  </div>
+
+  <div class="ref">
+    <div class="ref-title">6 Class Taxonomy</div>
+    <div class="ref-grid">
+      <div class="ref-item"><div class="ref-code">1</div><div class="ref-name">validation_error</div><div class="ref-desc">User hit a field error they couldn't resolve</div></div>
+      <div class="ref-item"><div class="ref-code">2</div><div class="ref-name">distraction</div><div class="ref-desc">User task-switched away (long idle gap)</div></div>
+      <div class="ref-item"><div class="ref-code">3</div><div class="ref-name">comparison_shopping</div><div class="ref-desc">Browsing/evaluating, not committing</div></div>
+      <div class="ref-item"><div class="ref-code">4</div><div class="ref-name">accidental_exit</div><div class="ref-desc">Closed tab or navigated away by mistake</div></div>
+      <div class="ref-item"><div class="ref-code">5</div><div class="ref-name">bot</div><div class="ref-desc">Automated non-human interaction</div></div>
+      <div class="ref-item"><div class="ref-code">6</div><div class="ref-name">committed_leave</div><div class="ref-desc">Intentionally chose not to complete</div></div>
+    </div>
+  </div>
 
   <footer>
-    <div class="footer-links">
-      <a href="https://github.com/jasonm4130/formrecap-lora-classifier">GitHub</a>
-      <span class="sep">·</span>
-      <a href="#">Blog Post</a>
-      <span class="sep">·</span>
-      <span class="tech">Gemma 2B + LoRA · Cloudflare Workers AI</span>
-    </div>
+    <a href="https://github.com/jasonm4130/formrecap-lora-classifier">GitHub</a> &middot;
+    <span class="mono" style="font-size:11px">Gemma 2B + LoRA &middot; Cloudflare Workers AI</span>
   </footer>
 
   <script src="/app.js"></script>

@@ -26,9 +26,9 @@ async function onTurnstileVerified(tsToken) {
 window.onTurnstileVerified = onTurnstileVerified;
 
 // Example buttons
-document.querySelectorAll(".example-btn").forEach((btn) => {
+document.querySelectorAll(".ex-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".example-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".ex-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById("events").value = btn.dataset.trace;
   });
@@ -40,15 +40,13 @@ document.getElementById("classify").addEventListener("click", async () => {
   if (!events) return;
 
   const btn = document.getElementById("classify");
-  const btnText = btn.querySelector(".btn-text");
-  const btnLoading = btn.querySelector(".btn-loading");
+  const btnText = document.getElementById("btn-text");
+  const btnLoading = document.getElementById("btn-loading");
 
   btn.disabled = true;
   btnText.hidden = true;
   btnLoading.hidden = false;
-
-  const resultSection = document.getElementById("result-section");
-  resultSection.hidden = true;
+  document.getElementById("result").hidden = true;
 
   try {
     const r = await fetch(`${API_BASE}/classify`, {
@@ -61,24 +59,20 @@ document.getElementById("classify").addEventListener("click", async () => {
     });
     const json = await r.json();
 
-    // Display structured result
     const className = CLASS_NAMES[json.code] || "unknown";
-    document.getElementById("result-class").textContent =
-      `${json.code} — ${className}`;
-    document.getElementById("result-confidence").textContent =
+    document.getElementById("r-class").textContent = `${json.code} — ${className}`;
+    document.getElementById("r-conf").textContent =
       json.confidence ? `confidence: ${(json.confidence * 100).toFixed(0)}%` : "";
-    document.getElementById("result-reason").textContent =
+    document.getElementById("r-reason").textContent =
       json.reason || json.raw || "No reason provided";
-    document.getElementById("result-json").textContent =
-      JSON.stringify(json, null, 2);
-
-    resultSection.hidden = false;
+    document.getElementById("r-json").textContent = JSON.stringify(json, null, 2);
+    document.getElementById("result").hidden = false;
   } catch (e) {
-    document.getElementById("result-class").textContent = "Error";
-    document.getElementById("result-confidence").textContent = "";
-    document.getElementById("result-reason").textContent = e.message;
-    document.getElementById("result-json").textContent = "";
-    resultSection.hidden = false;
+    document.getElementById("r-class").textContent = "Error";
+    document.getElementById("r-conf").textContent = "";
+    document.getElementById("r-reason").textContent = e.message;
+    document.getElementById("r-json").textContent = "";
+    document.getElementById("result").hidden = false;
   } finally {
     btn.disabled = false;
     btnText.hidden = false;
