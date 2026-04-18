@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FormRecap LoRA Classifier</title>
+  <link rel="stylesheet" href="/styles.css" />
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -70,15 +71,26 @@
   </style>
 </head>
 <body>
-  <h1>FormRecap <span>LoRA</span> Classifier</h1>
-  <p class="subtitle">A fine-tuned Gemma 2B classifies form abandonment reasons from event traces. Deployed to Cloudflare Workers AI.</p>
+  <header>
+    <h1>FormRecap <span>LoRA</span> Classifier</h1>
+    <p class="subtitle">A fine-tuned Gemma 2B classifies form abandonment reasons from event traces. Deployed to Cloudflare Workers AI.</p>
 
-  <div class="stats">
-    <div><div class="stat-val mono">0.916</div><div class="stat-lbl">Macro-F1</div></div>
-    <div><div class="stat-val mono">2B</div><div class="stat-lbl">Parameters</div></div>
-    <div><div class="stat-val mono">6</div><div class="stat-lbl">Classes</div></div>
-    <div><div class="stat-val mono">884</div><div class="stat-lbl">Training examples</div></div>
-  </div>
+    <div class="stats">
+      <div><div class="stat-val mono">0.916</div><div class="stat-lbl">Macro-F1</div></div>
+      <div><div class="stat-val mono">2B</div><div class="stat-lbl">Parameters</div></div>
+      <div><div class="stat-val mono">6</div><div class="stat-lbl">Classes</div></div>
+      <div><div class="stat-val mono">884</div><div class="stat-lbl">Training examples</div></div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-links">
+      <a href="/" class="active">Demo</a>
+      <a href="/results/">Results</a>
+      <a href="/models/">Models</a>
+      <a href="/architecture/">Architecture</a>
+    </div>
+  </nav>
 
   <label>Select model</label>
   <div class="examples" style="margin-bottom: 1.5rem;">
