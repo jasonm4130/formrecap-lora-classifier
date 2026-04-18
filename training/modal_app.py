@@ -56,7 +56,12 @@ def train(run_id: str, train_file: str, val_file: str, config: dict | None = Non
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from trl import SFTConfig, SFTTrainer
 
-    cfg = TrainingConfig(**(config or {}))
+    raw_config = config or {}
+    lora_overrides = raw_config.pop("lora", None)
+    cfg = TrainingConfig(**raw_config)
+    if lora_overrides:
+        for k, v in lora_overrides.items():
+            setattr(cfg.lora, k, v)
     vol = Path(VOLUME_PATH)
     run_dir = vol / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -206,15 +211,75 @@ def train(run_id: str, train_file: str, val_file: str, config: dict | None = Non
     return manifest
 
 
+@app.function(
+    image=image,
+    gpu="A100",
+    volumes={VOLUME_PATH: volume},
+    timeout=3600,
+    secrets=[modal.Secret.from_name("huggingface")],
+)
+def merge_adapter(run_id: str, base_model: str) -> str:
+    """Merge a LoRA adapter into the base model for vLLM-compatible serving."""
+    import os
+
+    import torch
+    from peft import PeftModel
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    hf_token = os.environ.get("HF_TOKEN", "")
+    vol = Path(VOLUME_PATH)
+    adapter_path = vol / "runs" / run_id / "adapter"
+    merged_path = vol / "runs" / run_id / "merged"
+
+    tokenizer = AutoTokenizer.from_pretrained(str(adapter_path))
+    base = AutoModelForCausalLM.from_pretrained(
+        base_model, token=hf_token, torch_dtype=torch.bfloat16, device_map="cpu"
+    )
+    model = PeftModel.from_pretrained(base, str(adapter_path))
+    merged = model.merge_and_unload()
+
+    merged.save_pretrained(str(merged_path))
+    tokenizer.save_pretrained(str(merged_path))
+
+    volume.commit()
+    return f"Merged adapter saved to {merged_path}"
+
+
+@app.local_entrypoint()
+def run_merge(run_id: str = "baseline-3b", base_model: str = "meta-llama/Llama-3.2-3B-Instruct"):
+    result = merge_adapter.remote(run_id=run_id, base_model=base_model)
+    print(result)
+
+
 @app.local_entrypoint()
 def run_train(
     run_id: str = "baseline",
     train_file: str = "data/train.jsonl",
     val_file: str = "data/val.jsonl",
     base_model: str = "",
+    lora_r: int = 0,
+    lora_targets: str = "",
+    no_dora: bool = False,
 ):
-    config = {"base_model": base_model} if base_model else None
-    manifest = train.remote(run_id=run_id, train_file=train_file, val_file=val_file, config=config)
+    config = {}
+    if base_model:
+        config["base_model"] = base_model
+    lora_overrides = {}
+    if lora_r > 0:
+        lora_overrides["r"] = lora_r
+        lora_overrides["alpha"] = lora_r * 2
+    if lora_targets:
+        lora_overrides["target_modules"] = lora_targets.split(",")
+    if no_dora:
+        lora_overrides["use_dora"] = False
+    if lora_overrides:
+        config["lora"] = lora_overrides
+    manifest = train.remote(
+        run_id=run_id,
+        train_file=train_file,
+        val_file=val_file,
+        config=config or None,
+    )
     print(manifest)
 
 

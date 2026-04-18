@@ -57,11 +57,11 @@ export async function handleClassify(env: Env, request: Request): Promise<Respon
   const check = validateEventTrace(body.events);
   if (!check.ok) return new Response(JSON.stringify({ error: check.reason }), { status: 400 });
 
-  // Call Workers AI — Gemma doesn't support system role, merge into user turn
+  // Call Workers AI — Mistral uses [INST] tags, system merged into user turn
   const messages = [
     { role: "user", content: `${SYSTEM_PROMPT}\n\nEvents: ${body.events}` },
   ];
-  const aiResp: any = await env.AI.run("@cf/google/gemma-2b-it-lora", { messages, lora: env.LORA_FINETUNE_ID });
+  const aiResp: any = await env.AI.run("@cf/mistral/mistral-7b-instruct-v0.2-lora", { messages, lora: env.LORA_FINETUNE_ID });
   const text = aiResp.response as string;
 
   const parsed = parseModelOutput(text);
