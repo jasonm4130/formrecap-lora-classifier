@@ -27,7 +27,7 @@ async function callCfWorkersAi(env: any, events: string, loraId: string): Promis
   const messages = [
     { role: "user", content: `${SYSTEM_PROMPT}\n\nEvents: ${events}` },
   ];
-  const aiResp: any = await env.AI.run("@cf/mistral/mistral-7b-instruct-v0.2-lora", { messages, lora: loraId });
+  const aiResp: any = await env.AI.run("@cf/google/gemma-2b-it-lora", { messages, lora: loraId });
   return aiResp.response as string;
 }
 
@@ -103,7 +103,7 @@ export async function handleClassify(env: Env, request: Request): Promise<Respon
       break;
     case "cf-lora":
     default:
-      // Mistral 7B CF LoRA via CF Workers AI
+      // Gemma 2B CF LoRA via CF Workers AI
       text = await callCfWorkersAi(env, body.events, env.LORA_FINETUNE_ID);
       break;
   }
