@@ -6,7 +6,7 @@ and full-lora inference on the same container via the OpenAI-compatible API.
 
 import modal
 
-from training.config import VOLUME_PATH
+VOLUME_PATH = "/vol"
 
 app = modal.App("formrecap-lora-vllm")
 
