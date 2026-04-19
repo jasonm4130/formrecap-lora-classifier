@@ -41,5 +41,8 @@ dist/
 .idea/
 .zed/
 
+# Superpowers brainstorm sessions
+.superpowers/
+
 # macOS
 .DS_Store
