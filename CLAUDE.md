@@ -2,16 +2,13 @@
 
 ## Project Overview
 
-Weekend fine-tuning project: Llama 3.2 3B LoRA classifier for form abandonment reasons (6 classes). Trained on Modal, deployed dually to Modal (logprobs/calibration) and Cloudflare Workers AI (edge). Public demo + blog post + LinkedIn post as deliverables.
-
-**Spec:** `~/Documents/Obsidian Vault/docs/superpowers/specs/2026-04-16-formrecap-lora-classifier-design.md`
-**Plan:** `~/Documents/Obsidian Vault/docs/superpowers/plans/2026-04-16-formrecap-lora-classifier.md`
+LoRA fine-tuned classifiers for form abandonment reasons (6 classes). Trained on Modal, deployed dually to Modal (logprobs/calibration) and Cloudflare Workers AI (edge).
 
 ## Tech Stack
 
 - **Python 3.11** via `uv` (NOT pip, NOT conda)
 - **Modal** for GPU training (L4) and inference
-- **Unsloth + PEFT + TRL** for LoRA fine-tuning
+- **PEFT + TRL** for LoRA fine-tuning
 - **Anthropic SDK** for data generation + LLM-as-judge
 - **pytest** for testing, **ruff** for linting/formatting
 - **TypeScript + Cloudflare Workers** for edge serving

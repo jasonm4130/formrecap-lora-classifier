@@ -1,7 +1,6 @@
-import pytest
 import numpy as np
 
-from formrecap_lora.eval.calibration import fit_temperature, apply_temperature
+from formrecap_lora.eval.calibration import apply_temperature, fit_temperature
 
 
 def test_apply_temperature_identity():

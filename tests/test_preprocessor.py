@@ -1,5 +1,6 @@
 import pytest
-from formrecap_lora.data.preprocessor import normalize_events, EventTrace
+
+from formrecap_lora.data.preprocessor import normalize_events
 
 
 def test_single_focus_event():

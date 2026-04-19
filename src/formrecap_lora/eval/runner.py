@@ -24,6 +24,8 @@ from formrecap_lora.eval.calibration import (
 from formrecap_lora.eval.metrics import (
     bootstrap_ci,
     brier_score,
+    calibration_buckets,
+    confusion_matrix,
     expected_calibration_error,
     macro_f1,
     per_class_f1,
@@ -253,6 +255,46 @@ def main(
         "Our LoRA (logprob + temperature scaled)", test_preds_temp, labels, test_conf_temp
     )
     results.append(r_temp)
+
+    # Save detailed predictions for charts
+    classes = list(range(1, N_CLASSES + 1))
+    valid_preds = [p for p in ours["preds"] if p is not None]
+    valid_labels = [l for p, l in zip(ours["preds"], labels) if p is not None]
+    valid_verbalized = [
+        c for p, c in zip(ours["preds"], ours["verbalized_confidences"]) if p is not None
+    ]
+    valid_logprob = [c for p, c in zip(ours["preds"], ours["logprob_confidences"]) if p is not None]
+    valid_calibrated = [c for p, c in zip(ours["preds"], test_conf_temp) if p is not None]
+
+    detailed = {
+        "run_id": run_id,
+        "base_model": base_model,
+        "temperature": T,
+        "predictions": [
+            {
+                "true_label": int(l),
+                "predicted_label": int(p),
+                "verbalized_confidence": round(float(vc), 4),
+                "logprob_confidence": round(float(lc), 4),
+                "calibrated_confidence": round(float(cc), 4),
+            }
+            for p, l, vc, lc, cc in zip(
+                valid_preds, valid_labels, valid_verbalized, valid_logprob, valid_calibrated
+            )
+        ],
+        "confusion_matrix": {
+            "classes": classes,
+            "matrix": confusion_matrix(valid_labels, valid_preds, classes),
+        },
+        "calibration_buckets": {
+            "logprob_raw": calibration_buckets(valid_labels, valid_preds, valid_logprob),
+            "calibrated": calibration_buckets(valid_labels, valid_preds, valid_calibrated),
+            "verbalized": calibration_buckets(valid_labels, valid_preds, valid_verbalized),
+        },
+    }
+    detailed_path = out / f"detailed-{run_id}.json"
+    detailed_path.write_text(json.dumps(detailed, indent=2))
+    console.print(f"[green]Wrote detailed data to {detailed_path}[/green]")
 
     # Render table
     table = Table(title=f"Results for run {run_id}")

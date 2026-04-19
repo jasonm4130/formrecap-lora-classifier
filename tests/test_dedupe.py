@@ -1,4 +1,3 @@
-import pytest
 from formrecap_lora.data.dedupe import dedupe_exact, is_near_duplicate
 
 

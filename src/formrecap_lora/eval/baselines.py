@@ -2,7 +2,6 @@
 
 import json
 import os
-import random
 from collections import Counter
 
 import httpx

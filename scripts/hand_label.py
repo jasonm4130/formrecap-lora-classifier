@@ -9,8 +9,8 @@ import click
 from rich.console import Console
 from rich.prompt import IntPrompt, Prompt
 
-from formrecap_lora.data.primers import CLASS_NAMES
 from formrecap_lora.data.preprocessor import normalize_events
+from formrecap_lora.data.primers import CLASS_NAMES
 
 console = Console()
 
