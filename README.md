@@ -2,7 +2,7 @@
 
 Fine-tuned LoRA classifiers for form abandonment detection. Trained on Modal, served on both Modal (logprob-calibrated confidence) and Cloudflare Workers AI (edge).
 
-**[Live demo](https://formrecap-classify.jasonm4130.workers.dev)**
+**[Live demo](https://labs.formrecap.com)**
 
 ## Why
 
