@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "formrecap-lab",
+  "compatibility_date": "2026-04-17",
+  "workers_dev": false,
+  "assets": {
+    "directory": "./public"
+  },
+  "routes": [
+    { "pattern": "lab.formrecap.com/*", "zone_name": "formrecap.com" },
+  ],
+}
