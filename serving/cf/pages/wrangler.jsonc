@@ -7,6 +7,6 @@
     "directory": "./public"
   },
   "routes": [
-    { "pattern": "lab.formrecap.com/*", "zone_name": "formrecap.com" },
+    { "pattern": "lab.formrecap.com", "custom_domain": true },
   ],
 }
