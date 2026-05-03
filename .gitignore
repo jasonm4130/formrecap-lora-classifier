@@ -46,3 +46,9 @@ dist/
 
 # macOS
 .DS_Store
+
+# Graphify build artifacts
+graphify-out/
+
+# Local Claude Code settings (per-user)
+.claude/settings.local.json
